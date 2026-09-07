@@ -60,15 +60,15 @@
         <div class="af-row3">
           <div class="af-field">
             <label for="largo">Largo (mm)</label>
-            <input type="number" id="largo" min="1" step="1" required>
+            <input type="number" id="largo" min="1" step="any" required>
           </div>
           <div class="af-field">
             <label for="ancho">Ancho (mm)</label>
-            <input type="number" id="ancho" min="1" step="1" required>
+            <input type="number" id="ancho" min="1" step="any" required>
           </div>
           <div class="af-field">
             <label for="alto">Alto (mm)</label>
-            <input type="number" id="alto" min="1" step="1" required>
+            <input type="number" id="alto" min="1" step="any" required>
           </div>
         </div>
 
@@ -104,7 +104,7 @@
         <div id="dieline-preview"></div>
 
         <div class="af-note">
-          <b>Supuesto v1 a validar:</b> el motor de cálculo todavía trata la caja como un cuerpo rígido armado (largo/ancho/alto ya erectos + grosor de cartón en las 3 caras). Pendiente: reemplazarlo por la conversión real caja extendida → caja armada según el tipo de pegue, en cuanto se confirme la fórmula.
+          <b>Modelo de cálculo (v2):</b> la caja se maneja doblada, no armada en 3D. Largo doblado = largo + ancho; alto doblado = alto × factor según el pegue (lineal y charola = 1.0, fondo automático = 0.75, 4 esquinas = 1.0 provisional, pendiente de confirmar). Las piezas se apilan hasta llenar el alto del corrugado formando una "posteta", y las postetas se acomodan en el piso del corrugado.
         </div>
 
         <button type="submit" class="af-btn af-btn-primary af-btn-full" style="margin-top:18px;">Calcular mejor empaque</button>

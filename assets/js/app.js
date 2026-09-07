@@ -61,7 +61,7 @@ function renderControls() {
 
   const orientacionOptions = entry.opciones.map((o, i) => `
     <option value="${i}" ${i === state.acomodoIndex ? 'selected' : ''}>
-      ${o.cols} × ${o.filas} = ${o.porCama} pzs/cama × ${o.camas} cama${o.camas > 1 ? 's' : ''} = ${o.total} pzs
+      ${o.cols} × ${o.filas} postetas × ${o.piezasPorPosteta} pzs/posteta = ${o.total} pzs
     </option>
   `).join('');
 
@@ -97,14 +97,10 @@ function render() {
   }
 
   const { input, resultado } = state;
-  const { grosorMm, cajaExteriorMm } = resultado;
+  const { grosorPiezaMm, largoDobladoMm, altoDobladoMm } = resultado;
   const { corrugado, acomodo, esMejor } = currentSelection();
   const estiba = calcularEstibaEnTarima(corrugado);
   const fecha = new Date().toLocaleDateString('es-MX');
-
-  const camaLegend = Array.from({ length: acomodo.camas }).map((_, i) => `
-    <span><span class="dot" style="background:${i === 0 ? '#0060b0' : '#5090c0'}"></span>Cama ${i + 1}: ${acomodo.porCama} pzs</span>
-  `).join('');
 
   const corrLegend = Array.from({ length: estiba.camas }).map((_, i) => `
     <span><span class="dot" style="background:${i === 0 ? '#c49a5e' : '#b3854a'}"></span>Cama de corrugados ${i + 1}: ${estiba.porCama} cajas</span>
@@ -114,13 +110,17 @@ function render() {
     ${renderControls()}
 
     <div class="af-card">
-      <h2>Vista 3D — caja dentro del corrugado</h2>
+      <h2>Vista 3D — postetas dentro del corrugado</h2>
       <p class="af-card-hint">
-        ${corrugado.id} — ${acomodo.camas} cama${acomodo.camas > 1 ? 's' : ''} de ${acomodo.porCama} pzs cada una (${acomodo.cols} × ${acomodo.filas})
+        ${corrugado.id} — ${acomodo.cols} × ${acomodo.filas} postetas de ${acomodo.piezasPorPosteta} pzs cada una
         ${esMejor ? '<span class="badge" style="margin-left:8px;">Recomendado</span>' : ''}
       </p>
       <div id="scene3d-product"></div>
-      <div class="cama-legend">${camaLegend}</div>
+      <div class="stat-strip">
+        <div class="stat"><div class="num">${acomodo.cols} × ${acomodo.filas}</div><div class="lbl">Postetas por corrugado</div></div>
+        <div class="stat"><div class="num">${acomodo.piezasPorPosteta}</div><div class="lbl">Piezas por posteta</div></div>
+        <div class="stat"><div class="num">${acomodo.total}</div><div class="lbl">Total de piezas</div></div>
+      </div>
     </div>
 
     <div class="af-card">
@@ -158,15 +158,15 @@ function render() {
       <table class="ficha-data-table">
         <tr>
           <td class="label">Tipo de corrugado</td><td class="value">${corrugado.id}</td>
-          <td class="label">Acomodo por cama</td><td class="value">${acomodo.cols} × ${acomodo.filas} = ${acomodo.porCama} pzs</td>
+          <td class="label">Postetas por corrugado</td><td class="value">${acomodo.cols} × ${acomodo.filas} = ${acomodo.postetasPorCama}</td>
         </tr>
         <tr>
           <td class="label">Dimensiones internas corrugado</td><td class="value">${corrugado.largo} × ${corrugado.ancho} × ${corrugado.alto} mm</td>
-          <td class="label">Camas dentro del corrugado</td><td class="value">${acomodo.camas}</td>
+          <td class="label">Piezas por posteta</td><td class="value">${acomodo.piezasPorPosteta}</td>
         </tr>
         <tr>
-          <td class="label">Caja + grosor de cartón</td><td class="value">${fmt(cajaExteriorMm[0])} × ${fmt(cajaExteriorMm[1])} × ${fmt(cajaExteriorMm[2])} mm</td>
-          <td class="label">Grosor aplicado</td><td class="value">${fmt(grosorMm, 2)} mm</td>
+          <td class="label">Caja doblada (largo × alto)</td><td class="value">${fmt(largoDobladoMm)} × ${fmt(altoDobladoMm)} mm</td>
+          <td class="label">Grosor por pieza</td><td class="value">${fmt(grosorPiezaMm, 2)} mm</td>
         </tr>
         <tr>
           <td class="label">Corrugados por tarima</td><td class="value">${estiba.total}</td>
@@ -184,7 +184,7 @@ function render() {
     </div>
   `;
 
-  renderProductScene($('#scene3d-product'), { corrugado, acomodo });
+  renderProductScene($('#scene3d-product'), { corrugado, acomodo, grosorPiezaMm });
   renderPalletScene($('#scene3d-pallet'), { corrugado, estiba });
 
   $('#sel-corrugado').addEventListener('change', (e) => {

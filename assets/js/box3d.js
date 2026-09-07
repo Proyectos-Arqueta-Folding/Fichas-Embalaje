@@ -92,29 +92,39 @@ const CAMA_COLORS = [
   { top: '#dcecf9', front: '#5090c0', side: '#2a5a86' },
 ];
 
-/** Vista: cajas de producto acomodadas dentro de un corrugado, por cama. */
-function renderProductScene(mountEl, { corrugado, acomodo }) {
+// Líneas finas repetidas en la cara frontal, para sugerir que la posteta
+// es un bloque de piezas apiladas (como el ícono "postetas" de las fichas
+// reales), no una caja sólida.
+function postetaStripes(colorBase, lineas) {
+  const n = Math.max(4, Math.min(14, lineas));
+  const step = 100 / n;
+  return `repeating-linear-gradient(to bottom, ${colorBase} 0px, ${colorBase} ${step * 0.72}%, rgba(0,0,0,0.16) ${step * 0.72}%, rgba(0,0,0,0.16) ${step}%)`;
+}
+
+/** Vista: postetas (piezas dobladas apiladas) acomodadas dentro del corrugado. */
+function renderProductScene(mountEl, { corrugado, acomodo, grosorPiezaMm }) {
   const { largo, ancho, alto } = corrugado; // mm: largo->X, ancho->Z, alto->Y
-  const { orientacion, cols, filas, camas } = acomodo;
+  const { orientacion, cols, filas, piezasPorPosteta } = acomodo;
   const scale = SCENE_PX / Math.max(largo, ancho, alto);
 
   const contW = largo * scale, contH = alto * scale, contD = ancho * scale;
-  const boxW = orientacion.x * scale, boxH = orientacion.z * scale, boxD = orientacion.y * scale;
+  const boxW = orientacion.x * scale, boxD = orientacion.y * scale;
+  const boxH = Math.min(alto, piezasPorPosteta * grosorPiezaMm) * scale;
 
+  const color = CAMA_COLORS[0];
   let units = '';
-  for (let k = 0; k < camas; k++) {
-    const color = CAMA_COLORS[k % CAMA_COLORS.length];
-    for (let i = 0; i < cols; i++) {
-      for (let j = 0; j < filas; j++) {
-        const cx = (i + 0.5) * boxW - contW / 2;
-        const cz = (j + 0.5) * boxD - contD / 2;
-        const cy = contH / 2 - (k * boxH + boxH / 2);
-        units += anchored(cx, cy, cz, cuboidHTML({
-          w: boxW * 0.92, h: boxH * 0.92, d: boxD * 0.92,
-          colorTop: color.top, colorFront: color.front, colorSide: color.side,
-          border: 'box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);',
-        }));
-      }
+  for (let i = 0; i < cols; i++) {
+    for (let j = 0; j < filas; j++) {
+      const cx = (i + 0.5) * boxW - contW / 2;
+      const cz = (j + 0.5) * boxD - contD / 2;
+      const cy = (contH - boxH) / 2; // posteta parada desde el piso del corrugado
+      units += anchored(cx, cy, cz, cuboidHTML({
+        w: boxW * 0.92, h: boxH, d: boxD * 0.92,
+        colorTop: color.top,
+        colorFront: postetaStripes(color.front, piezasPorPosteta / 3),
+        colorSide: postetaStripes(color.side, piezasPorPosteta / 3),
+        border: 'box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);',
+      }));
     }
   }
 
