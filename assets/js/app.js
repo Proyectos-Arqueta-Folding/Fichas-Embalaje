@@ -52,10 +52,17 @@ function fmt(n, dec = 1) {
   return Number(n).toLocaleString('es-MX', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
+// Resume 1 cama, incluyendo el grupo rotado si mezcla orientaciones
+// dentro de la misma cama (ej. "6×3×260 + 2 rotadas×260").
+function camaLabel(c) {
+  const base = `${c.orientacionLabel} ${c.cols}×${c.filas}×${c.piezasPorPosteta}`;
+  return c.extra > 0 ? `${base} + ${c.extraCols}×${c.extraFilas} rotadas×${c.piezasPorPosteta}` : base;
+}
+
 // Resume una estrategia (1 o varias camas, posiblemente con ejes distintos)
 // en una sola línea legible, ej: "Parada 2×1×260 + Acostada (a lo largo) 1×3×5".
 function estrategiaLabel(estrategia) {
-  return estrategia.camas.map((c) => `${c.orientacionLabel} ${c.cols}×${c.filas}×${c.piezasPorPosteta}`).join(' + ');
+  return estrategia.camas.map(camaLabel).join(' + ');
 }
 
 // Resume el piso de una cama de la tarima: "6 cajas" o, si mezcla
@@ -154,7 +161,10 @@ function render({ scrollToScene = false } = {}) {
   const camasFilas = estrategia.camas.map((c, i) => `
     <tr>
       <td class="label"><span class="dot" style="background:${i === 0 ? '#0060b0' : '#5090c0'}"></span>Cama ${i + 1} — ${c.orientacionLabel}</td>
-      <td class="value">${c.cols} × ${c.filas} postetas × ${c.piezasPorPosteta} pzs/posteta</td>
+      <td class="value">
+        ${c.cols} × ${c.filas} postetas × ${c.piezasPorPosteta} pzs/posteta
+        ${c.extra > 0 ? `<br><span style="color:var(--af-ink-soft); font-size:12px;">+ ${c.extraCols} × ${c.extraFilas} rotadas 90° (tira sobrante) × ${c.piezasPorPosteta} pzs/posteta</span>` : ''}
+      </td>
       <td class="value" style="text-align:right;">${c.total} pzs</td>
     </tr>
   `).join('');

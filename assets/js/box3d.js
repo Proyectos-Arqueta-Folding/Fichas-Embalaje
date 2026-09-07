@@ -127,35 +127,51 @@ function renderProductScene(mountEl, { corrugado, estrategia, grosorPiezaMm }) {
   const offsets = { largo: 0, ancho: 0, alto: 0 };
   let units = '';
 
+  function dibujarCelda(cama, color, offsetA, sizeA, sizeB, i, j, stackCenter, stackLen) {
+    const centers = {};
+    centers[cama.ejeApilado] = stackCenter;
+    centers[cama.ejeA] = offsetA + (i + 0.5) * sizeA;
+    centers[cama.ejeB] = offsets[cama.ejeB] + (j + 0.5) * sizeB;
+
+    const sizes = {};
+    sizes[cama.ejeApilado] = stackLen;
+    sizes[cama.ejeA] = sizeA;
+    sizes[cama.ejeB] = sizeB;
+
+    const cx = horizCoord(centers.largo, largo, scale);
+    const cz = horizCoord(centers.ancho, ancho, scale);
+    const cy = vertCoord(centers.alto, alto, scale);
+    const boxW = sizes.largo * scale, boxD = sizes.ancho * scale, boxH = sizes.alto * scale;
+
+    return anchored(cx, cy, cz, cuboidHTML({
+      w: boxW * 0.92, h: boxH * 0.92, d: boxD * 0.92,
+      colorTop: color.top,
+      colorFront: postetaStripes(color.front, cama.piezasPorPosteta / 3),
+      colorSide: postetaStripes(color.side, cama.piezasPorPosteta / 3),
+      border: 'box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);',
+    }));
+  }
+
   estrategia.camas.forEach((cama, camaIndex) => {
     const color = CAMA_COLORS[camaIndex % CAMA_COLORS.length];
     const stackLen = cama.apiladas * grosorPiezaMm;
     const stackCenter = offsets[cama.ejeApilado] + stackLen / 2;
 
+    // Cuadrícula principal.
     for (let i = 0; i < cama.cols; i++) {
       for (let j = 0; j < cama.filas; j++) {
-        const centers = {};
-        centers[cama.ejeApilado] = stackCenter;
-        centers[cama.ejeA] = offsets[cama.ejeA] + (i + 0.5) * cama.dimA;
-        centers[cama.ejeB] = offsets[cama.ejeB] + (j + 0.5) * cama.dimB;
+        units += dibujarCelda(cama, color, offsets[cama.ejeA], cama.dimA, cama.dimB, i, j, stackCenter, stackLen);
+      }
+    }
 
-        const sizes = {};
-        sizes[cama.ejeApilado] = stackLen;
-        sizes[cama.ejeA] = cama.dimA;
-        sizes[cama.ejeB] = cama.dimB;
-
-        const cx = horizCoord(centers.largo, largo, scale);
-        const cz = horizCoord(centers.ancho, ancho, scale);
-        const cy = vertCoord(centers.alto, alto, scale);
-        const boxW = sizes.largo * scale, boxD = sizes.ancho * scale, boxH = sizes.alto * scale;
-
-        units += anchored(cx, cy, cz, cuboidHTML({
-          w: boxW * 0.92, h: boxH * 0.92, d: boxD * 0.92,
-          colorTop: color.top,
-          colorFront: postetaStripes(color.front, cama.piezasPorPosteta / 3),
-          colorSide: postetaStripes(color.side, cama.piezasPorPosteta / 3),
-          border: 'box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);',
-        }));
+    // Tira sobrante rellena con postetas ROTADAS 90° (mismo truco que la
+    // tarima) — mismo eje de apilado y misma cama, distinta orientación.
+    if (cama.extra > 0) {
+      const offsetExtraA = offsets[cama.ejeA] + cama.cols * cama.dimA;
+      for (let i = 0; i < cama.extraCols; i++) {
+        for (let j = 0; j < cama.extraFilas; j++) {
+          units += dibujarCelda(cama, color, offsetExtraA, cama.dimB, cama.dimA, i, j, stackCenter, stackLen);
+        }
       }
     }
 

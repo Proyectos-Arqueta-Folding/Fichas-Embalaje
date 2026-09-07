@@ -64,16 +64,34 @@ function grosorPiezaMm({ tipo, calibre, pegue }) {
   return espesorCapa * capas;
 }
 
-/** De 2 medidas de footprint (f1, f2) y 2 dimensiones disponibles (dimA, dimB),
- * regresa el cruce que da más piezas (probando las 2 formas de acomodarlas). */
-function mejorFootprint(dimA, dimB, f1, f2) {
-  const op1 = { colsA: Math.floor(dimA / f1), colsB: Math.floor(dimB / f2) };
-  const op2 = { colsA: Math.floor(dimA / f2), colsB: Math.floor(dimB / f1) };
-  const c1 = op1.colsA * op1.colsB;
-  const c2 = op2.colsA * op2.colsB;
-  return c1 >= c2
-    ? { colsA: op1.colsA, colsB: op1.colsB, count: c1, dimsAB: [f1, f2] }
-    : { colsA: op2.colsA, colsB: op2.colsB, count: c2, dimsAB: [f2, f1] };
+/**
+ * Acomoda un rectángulo (f1 x f2, probando sus 2 orientaciones) en un
+ * piso de dimA x dimB, y si sobra una tira después de la cuadrícula
+ * principal, la rellena con MÁS rectángulos rotados 90° (mismo truco que
+ * la tarima) — para no dejar espacio muerto ni dentro de una sola cama.
+ * Regresa cols/filas de la cuadrícula principal, y extraCols/extraFilas
+ * de los rotados en la tira sobrante (0 si no caben).
+ */
+function piso2D(dimA, dimB, f1, f2) {
+  function intento(wA, wB) {
+    const cols = Math.floor(dimA / wA);
+    const filas = Math.floor(dimB / wB);
+    const principal = cols * filas;
+    const sobranteA = dimA - cols * wA;
+
+    let extraCols = 0, extraFilas = 0, extra = 0;
+    if (sobranteA >= wB) {
+      extraCols = Math.floor(sobranteA / wB);
+      extraFilas = Math.floor(dimB / wA);
+      extra = extraCols * extraFilas;
+    }
+
+    return { cols, filas, principal, extraCols, extraFilas, extra, total: principal + extra, wA, wB };
+  }
+
+  const op1 = intento(f1, f2);
+  const op2 = intento(f2, f1);
+  return op1.total >= op2.total ? { ...op1, rotado: false } : { ...op2, rotado: true };
 }
 
 /**
@@ -85,55 +103,27 @@ function mejorFootprint(dimA, dimB, f1, f2) {
 function evaluarEspacio({ largo, ancho, alto }, { largoDoblado, altoDoblado }, grosorPieza) {
   const candidatos = [];
 
-  // Parada: se apila en el alto; el footprint doblado ocupa el piso (largo x ancho).
-  {
-    const apiladas = Math.floor(alto / grosorPieza);
-    if (apiladas > 0) {
-      const fp = mejorFootprint(largo, ancho, largoDoblado, altoDoblado);
-      if (fp.count > 0) {
-        candidatos.push({
-          ejeApilado: 'alto', orientacionLabel: 'Parada',
-          apiladas, cols: fp.colsA, filas: fp.colsB, postetasPorCama: fp.count,
-          piezasPorPosteta: apiladas, total: fp.count * apiladas,
-          ejeA: 'largo', ejeB: 'ancho', dimA: fp.dimsAB[0], dimB: fp.dimsAB[1],
-        });
-      }
-    }
+  function agregar(ejeApilado, orientacionLabel, apiladas, dimA, dimB, ejeA, ejeB) {
+    if (apiladas <= 0) return;
+    const p = piso2D(dimA, dimB, largoDoblado, altoDoblado);
+    if (p.total <= 0) return;
+    candidatos.push({
+      ejeApilado, orientacionLabel, apiladas,
+      cols: p.cols, filas: p.filas, postetasPorCama: p.total,
+      piezasPorPosteta: apiladas, total: p.total * apiladas,
+      ejeA, ejeB, dimA: p.wA, dimB: p.wB,
+      extraCols: p.extraCols, extraFilas: p.extraFilas, extra: p.extra,
+    });
   }
 
+  // Parada: se apila en el alto; el footprint doblado ocupa el piso (largo x ancho).
+  agregar('alto', 'Parada', Math.floor(alto / grosorPieza), largo, ancho, 'largo', 'ancho');
   // Acostada (eje largo): se apila a lo largo del corrugado; el footprint
   // doblado ocupa la cara (ancho x alto).
-  {
-    const apiladas = Math.floor(largo / grosorPieza);
-    if (apiladas > 0) {
-      const fp = mejorFootprint(ancho, alto, largoDoblado, altoDoblado);
-      if (fp.count > 0) {
-        candidatos.push({
-          ejeApilado: 'largo', orientacionLabel: 'Acostada (a lo largo)',
-          apiladas, cols: fp.colsA, filas: fp.colsB, postetasPorCama: fp.count,
-          piezasPorPosteta: apiladas, total: fp.count * apiladas,
-          ejeA: 'ancho', ejeB: 'alto', dimA: fp.dimsAB[0], dimB: fp.dimsAB[1],
-        });
-      }
-    }
-  }
-
+  agregar('largo', 'Acostada (a lo largo)', Math.floor(largo / grosorPieza), ancho, alto, 'ancho', 'alto');
   // Acostada (eje ancho): se apila a lo ancho del corrugado; el footprint
   // doblado ocupa la cara (largo x alto).
-  {
-    const apiladas = Math.floor(ancho / grosorPieza);
-    if (apiladas > 0) {
-      const fp = mejorFootprint(largo, alto, largoDoblado, altoDoblado);
-      if (fp.count > 0) {
-        candidatos.push({
-          ejeApilado: 'ancho', orientacionLabel: 'Acostada (a lo ancho)',
-          apiladas, cols: fp.colsA, filas: fp.colsB, postetasPorCama: fp.count,
-          piezasPorPosteta: apiladas, total: fp.count * apiladas,
-          ejeA: 'largo', ejeB: 'alto', dimA: fp.dimsAB[0], dimB: fp.dimsAB[1],
-        });
-      }
-    }
-  }
+  agregar('ancho', 'Acostada (a lo ancho)', Math.floor(ancho / grosorPieza), largo, alto, 'largo', 'alto');
 
   candidatos.sort((a, b) => b.total - a.total);
   return candidatos;
@@ -250,31 +240,12 @@ function calcularMejorEmpaque({ largo, ancho, alto, tipoCarton, calibre, pegue }
  * corrugado siempre se estiba parado.
  */
 function evaluarPisoTarima(dimA, dimB, corrLargo, corrAncho) {
-  function base(wPrincipal, wRotado) {
-    const cols = Math.floor(dimA / wPrincipal);
-    const filas = Math.floor(dimB / wRotado);
-    const principal = cols * filas;
-    const sobranteA = dimA - cols * wPrincipal;
-
-    let extraCols = 0, extraFilas = 0, extra = 0;
-    if (sobranteA >= wRotado) {
-      extraCols = Math.floor(sobranteA / wRotado);
-      extraFilas = Math.floor(dimB / wPrincipal);
-      extra = extraCols * extraFilas;
-    }
-
-    return {
-      cols, filas, principal,
-      extraCols, extraFilas, extra,
-      total: principal + extra,
-      wPrincipal, wRotado, sobranteA,
-    };
-  }
-
-  const opcionA = base(corrLargo, corrAncho); // corrugado "normal" como base
-  const opcionB = base(corrAncho, corrLargo); // corrugado rotado 90° como base
-  const mejor = opcionA.total >= opcionB.total ? { ...opcionA, rotadoBase: false } : { ...opcionB, rotadoBase: true };
-  return mejor;
+  const p = piso2D(dimA, dimB, corrLargo, corrAncho);
+  return {
+    cols: p.cols, filas: p.filas, principal: p.principal,
+    extraCols: p.extraCols, extraFilas: p.extraFilas, extra: p.extra,
+    total: p.total, wPrincipal: p.wA, wRotado: p.wB, rotadoBase: p.rotado,
+  };
 }
 
 /**
