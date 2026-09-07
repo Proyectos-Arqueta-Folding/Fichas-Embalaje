@@ -43,6 +43,23 @@ const CAPAS_POR_PEGUE = {
   cuatro_esquinas: { label: '4 esquinas', capas: 7 },
 };
 
+// De "Proveedores_Lozano.xlsx" — gramaje (g/m2) de cartón sólido por
+// material y calibre, para estimar peso bruto (pendiente de conectar:
+// falta definir qué área usar — ver nota en packing.js / conversación).
+// OJO calibre 16 de CAPLE CHILENO REV CAFE vino con 2 valores en la
+// tabla que dio el usuario (235 y 244 g/m2) — se usó 244 (el segundo);
+// falta confirmar cuál es el correcto.
+const GRAMAJE_SOLIDO = {
+  'MULTICAPA': { 12: 215, 14: 235, 15: 250, 16: 270, 18: 295, 20: 325, 22: 350, 24: 380 },
+  'CAPLE CHILENO REV CAFE': { 12: 200, 14: 219, 16: 244, 18: 260, 20: 277, 22: 296, 24: 321 },
+};
+
+// Microcorrugado — ESTIMADO PROVISIONAL (investigación web 2026-09-08,
+// no son datos del proveedor real): liner ~250 g/m2 (kraft típico,
+// rango real 225-600 g/m2 según grado) + flauta F/E/B ~87 g/m2 (rango
+// real 85-90 g/m2). Reemplazar en cuanto el usuario dé datos reales.
+const GRAMAJE_MICROCORRUGADO_ESTIMADO = 250 + 87; // ≈ 337 g/m2
+
 // Tarima: 120 x 120 cm reales, pero la propia tarima ocupa 20 cm de alto,
 // dejando 100 cm de alto útil para estibar corrugados (confirmado con el usuario).
 const TARIMA = {
