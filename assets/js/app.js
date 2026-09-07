@@ -31,7 +31,7 @@ function poblarCalibres() {
       calibreSelect.appendChild(opt);
     });
   }
-  campoMaterial.style.display = tipo === 'solido' ? '' : 'none';
+  $('#label-material').textContent = tipo === 'solido' ? 'Material (para el peso)' : 'Liner (para el peso, 12 pt)';
 }
 
 function poblarMateriales() {

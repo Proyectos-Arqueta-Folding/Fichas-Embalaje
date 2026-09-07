@@ -54,11 +54,15 @@ const GRAMAJE_SOLIDO = {
   'CAPLE CHILENO REV CAFE': { 12: 200, 14: 219, 16: 244, 18: 260, 20: 277, 22: 296, 24: 321 },
 };
 
-// Microcorrugado — ESTIMADO PROVISIONAL (investigación web 2026-09-08,
-// no son datos del proveedor real): liner ~250 g/m2 (kraft típico,
-// rango real 225-600 g/m2 según grado) + flauta F/E/B ~87 g/m2 (rango
-// real 85-90 g/m2). Reemplazar en cuanto el usuario dé datos reales.
-const GRAMAJE_MICROCORRUGADO_ESTIMADO = 250 + 87; // ≈ 337 g/m2
+// Microcorrugado = liner (12 pt, usa el gramaje real de GRAMAJE_SOLIDO
+// según el material elegido) + flauta F/E/B. El gramaje de la flauta es
+// un ESTIMADO PROVISIONAL (investigación web 2026-09-08, no son datos
+// del proveedor real): ~85-90 g/m2 para F/E/B por igual, sin distinguir
+// entre ellas todavía. Reemplazar en cuanto el usuario dé datos reales.
+const GRAMAJE_FLAUTA_ESTIMADO = 87;
+// Si no hay material/liner seleccionado, este es el respaldo (liner
+// típico ~250 g/m2 + flauta ~87 g/m2).
+const GRAMAJE_MICROCORRUGADO_ESTIMADO = 250 + GRAMAJE_FLAUTA_ESTIMADO;
 
 // Tarima: 120 x 120 cm reales, pero la propia tarima ocupa 20 cm de alto,
 // dejando 100 cm de alto útil para estibar corrugados (confirmado con el usuario).

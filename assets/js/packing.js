@@ -142,35 +142,59 @@ function evaluarEspacio({ largo, ancho, alto }, { largoDoblado, altoDoblado }, g
 const MAX_CAMAS = 4;
 
 /**
- * Arma una ESTRATEGIA completa para un corrugado: empieza con una opción
- * de primera cama y va llenando el espacio sobrante (en el eje que usó
- * esa cama) de forma golosa, permitiendo que cada cama siguiente use un
- * eje distinto (parada/acostada) si eso aprovecha mejor el hueco.
+ * Busca, de forma EXHAUSTIVA (no golosa), la mejor combinación posible de
+ * camas siguientes para un espacio sobrante dado — prueba TODAS las
+ * opciones en cada paso (no solo la mejor de ese paso), recursivamente,
+ * hasta agotar el espacio o llegar a MAX_CAMAS. Esto es necesario porque
+ * la mejor cama 2 por sí sola no siempre lleva a la mejor combinación
+ * total (ej. puede convenir usar 2 camas acostadas más chicas en vez de
+ * 1 acostada que llene todo el sobrante, si eso deja mejor aprovechado
+ * un eje distinto).
  */
-function armarEstrategia(corrugadoDims, primeraCama, doblada, grosorPieza) {
-  const camas = [primeraCama];
-  let total = primeraCama.total;
-  let slot = { ...corrugadoDims };
-  slot[primeraCama.ejeApilado] -= primeraCama.apiladas * grosorPieza;
+function mejorContinuacion(slot, doblada, grosorPieza, camasRestantes) {
+  if (camasRestantes <= 0) return { camas: [], total: 0 };
 
-  for (let i = 1; i < MAX_CAMAS; i++) {
-    if (Object.values(slot).some((v) => v < 0)) break;
-    const opciones = evaluarEspacio(slot, doblada, grosorPieza);
-    if (opciones.length === 0 || opciones[0].total <= 0) break;
-    const siguiente = opciones[0];
-    camas.push(siguiente);
-    total += siguiente.total;
-    slot = { ...slot };
-    slot[siguiente.ejeApilado] -= siguiente.apiladas * grosorPieza;
+  const opciones = evaluarEspacio(slot, doblada, grosorPieza);
+  let mejor = { camas: [], total: 0 }; // opción de no agregar más camas
+
+  for (const opcion of opciones) {
+    const siguienteSlot = { ...slot };
+    siguienteSlot[opcion.ejeApilado] -= opcion.apiladas * grosorPieza;
+    const sub = mejorContinuacion(siguienteSlot, doblada, grosorPieza, camasRestantes - 1);
+    const total = opcion.total + sub.total;
+    if (total > mejor.total) {
+      mejor = { camas: [opcion, ...sub.camas], total };
+    }
   }
 
-  return { camas, total };
+  return mejor;
 }
 
 /**
- * Evalúa un corrugado completo: genera una estrategia por cada opción
- * posible de primera cama (parada / acostada-largo / acostada-ancho), y
- * regresa todas ordenadas de mayor a menor total, para poder comparar y
+ * Arma la MEJOR estrategia completa para un corrugado empezando con una
+ * opción de primera cama dada, evaluando exhaustivamente todas las
+ * combinaciones posibles de camas siguientes (parada/acostada, mezcladas
+ * como haga falta) hasta agotar el espacio o llegar a MAX_CAMAS.
+ */
+function armarEstrategia(corrugadoDims, primeraCama, doblada, grosorPieza) {
+  let slot = { ...corrugadoDims };
+  slot[primeraCama.ejeApilado] -= primeraCama.apiladas * grosorPieza;
+
+  const continuacion = mejorContinuacion(slot, doblada, grosorPieza, MAX_CAMAS - 1);
+
+  return {
+    camas: [primeraCama, ...continuacion.camas],
+    total: primeraCama.total + continuacion.total,
+  };
+}
+
+/**
+ * Evalúa un corrugado completo: para cada opción posible de PRIMERA cama
+ * (parada / acostada-largo / acostada-ancho), encuentra la mejor
+ * combinación completa de camas siguientes (búsqueda exhaustiva, no
+ * golosa) — así se evalúan todas las posibilidades de camas que quepan
+ * en el corrugado, no solo la primera que aparece. Regresa todas las
+ * estrategias ordenadas de mayor a menor total, para comparar y
  * seleccionar manualmente.
  */
 function evaluarCorrugado(corrugado, doblada, grosorPieza) {
@@ -264,9 +288,14 @@ function evaluarPisoTarima(dimA, dimB, corrLargo, corrAncho) {
 function calcularPesoPiezaG({ tipoCarton, material, calibre, laminaAncho, laminaAlto }) {
   if (!laminaAncho || !laminaAlto) return null;
 
-  const gramaje = tipoCarton === 'solido'
-    ? GRAMAJE_SOLIDO[material]?.[calibre]
-    : GRAMAJE_MICROCORRUGADO_ESTIMADO;
+  let gramaje;
+  if (tipoCarton === 'solido') {
+    gramaje = GRAMAJE_SOLIDO[material]?.[calibre];
+  } else {
+    // Microcorrugado = liner (12 pt, gramaje real del material elegido) + flauta (estimado).
+    const linerGramaje = GRAMAJE_SOLIDO[material]?.[12];
+    gramaje = linerGramaje != null ? linerGramaje + GRAMAJE_FLAUTA_ESTIMADO : GRAMAJE_MICROCORRUGADO_ESTIMADO;
+  }
   if (!gramaje) return null;
 
   const areaM2 = (laminaAncho * laminaAlto) / 1e6;
