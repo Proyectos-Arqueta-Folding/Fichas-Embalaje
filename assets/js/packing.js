@@ -254,6 +254,26 @@ function evaluarPisoTarima(dimA, dimB, corrLargo, corrAncho) {
 }
 
 /**
+ * Estima el peso de UNA pieza doblada (cartón + 5g de barniz/tinta), a
+ * partir del área TOTAL de la lámina extendida (ancho x alto del
+ * troquel, con pestañas — NO el footprint doblado, que es más chico).
+ * Regresa null si falta el dato de la lámina o el gramaje del material.
+ * Confirmado con el usuario: el área sale de las medidas del troquel
+ * que suba, no de una fórmula genérica a partir de largo/ancho/alto.
+ */
+function calcularPesoPiezaG({ tipoCarton, material, calibre, laminaAncho, laminaAlto }) {
+  if (!laminaAncho || !laminaAlto) return null;
+
+  const gramaje = tipoCarton === 'solido'
+    ? GRAMAJE_SOLIDO[material]?.[calibre]
+    : GRAMAJE_MICROCORRUGADO_ESTIMADO;
+  if (!gramaje) return null;
+
+  const areaM2 = (laminaAncho * laminaAlto) / 1e6;
+  return areaM2 * gramaje + 5; // +5g de barniz y tinta por pieza
+}
+
+/**
  * Calcula cuántos corrugados caben en la tarima: acomodo 2D en el piso
  * (mezclando orientaciones si eso da más piezas) y cuántas camas de
  * corrugados caben en la altura. Da 2 opciones de altura: "segura"

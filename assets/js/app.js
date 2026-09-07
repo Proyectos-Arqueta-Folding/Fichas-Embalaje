@@ -10,6 +10,8 @@ $('#dieline-img').addEventListener('change', (e) => {
 
 const tipoCartonSelect = $('#tipoCarton');
 const calibreSelect = $('#calibre');
+const materialSelect = $('#material');
+const campoMaterial = $('#campo-material');
 
 function poblarCalibres() {
   const tipo = tipoCartonSelect.value;
@@ -29,10 +31,22 @@ function poblarCalibres() {
       calibreSelect.appendChild(opt);
     });
   }
+  campoMaterial.style.display = tipo === 'solido' ? '' : 'none';
+}
+
+function poblarMateriales() {
+  materialSelect.innerHTML = '';
+  Object.keys(GRAMAJE_SOLIDO).forEach((mat) => {
+    const opt = document.createElement('option');
+    opt.value = mat;
+    opt.textContent = mat;
+    materialSelect.appendChild(opt);
+  });
 }
 
 tipoCartonSelect.addEventListener('change', poblarCalibres);
 poblarCalibres();
+poblarMateriales();
 
 function fmt(n, dec = 1) {
   return Number(n).toLocaleString('es-MX', { minimumFractionDigits: dec, maximumFractionDigits: dec });
@@ -127,7 +141,7 @@ function render({ scrollToScene = false } = {}) {
     return;
   }
 
-  const { input, resultado } = state;
+  const { input, resultado, pesoPiezaG } = state;
   const { grosorPiezaMm, largoDobladoMm, altoDobladoMm } = resultado;
   const { corrugado, estrategia, esMejor } = currentSelection();
   const estiba = calcularEstibaEnTarima(corrugado);
@@ -226,7 +240,8 @@ function render({ scrollToScene = false } = {}) {
         </tr>
         <tr>
           <td class="label">Total de Piezas</td><td class="value" style="font-size:16px; color:var(--af-blue);">${estrategia.total} pzs</td>
-          <td class="label">Peso Bruto</td><td class="value">— (falta dato de peso)</td>
+          <td class="label">Peso de las piezas</td>
+          <td class="value">${pesoPiezaG != null ? `${fmt((pesoPiezaG * estrategia.total) / 1000, 2)} kg (sin el corrugado)` : '— (falta ancho/alto de la lámina)'}</td>
         </tr>
         <tr>
           <td class="label">Corrugados por tarima</td><td class="value">${totalMostrado}</td>
@@ -286,15 +301,19 @@ $('#ficha-form').addEventListener('submit', (e) => {
     alto: Number($('#alto').value),
     tipoCarton: tipoCartonSelect.value,
     calibre: tipoCartonSelect.value === 'solido' ? Number(calibreSelect.value) : calibreSelect.value,
+    material: materialSelect.value,
     pegue: $('#pegue').value,
+    laminaAncho: Number($('#laminaAncho').value) || null,
+    laminaAlto: Number($('#laminaAlto').value) || null,
   };
 
   const resultado = calcularMejorEmpaque(input);
+  const pesoPiezaG = calcularPesoPiezaG(input);
 
   if (resultado.error) {
     state = { input, resultado };
   } else {
-    state = { input, resultado, corrugadoId: resultado.corrugadoId, acomodoIndex: 0 };
+    state = { input, resultado, pesoPiezaG, corrugadoId: resultado.corrugadoId, acomodoIndex: 0 };
   }
   render();
 });
