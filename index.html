@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Fichas de Embalaje — Arqueta Folding</title>
+<link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+
+<header class="af-header">
+  <div class="af-brand">
+    <svg class="af-logo-mark" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+      <polygon points="20,2 36,11 20,20 4,11" fill="#70a0d0"/>
+      <polygon points="4,11 20,20 20,38 4,29" fill="#0060b0"/>
+      <polygon points="36,11 20,20 20,38 36,29" fill="#5090c0"/>
+    </svg>
+    <div class="af-brand-text">
+      <div class="title">Fichas de Embalaje</div>
+      <div class="subtitle">Arqueta Folding</div>
+    </div>
+  </div>
+  <div class="af-header-tag">Prototipo v1 — datos de catálogo locales</div>
+</header>
+
+<main class="af-shell">
+  <h1 class="af-page-title">Nueva ficha de embalaje</h1>
+  <p class="af-page-sub">Captura las dimensiones de la caja, el calibre y el tipo de pegue. El sistema calcula qué corrugado del catálogo entrega más piezas.</p>
+
+  <div class="af-grid">
+    <!-- ====================== FORM ====================== -->
+    <div>
+      <form id="ficha-form" class="af-card">
+        <h2>Datos generales</h2>
+        <p class="af-card-hint">Aparecen en el encabezado de la ficha final.</p>
+
+        <div class="af-row2">
+          <div class="af-field">
+            <label for="cliente">Cliente</label>
+            <input type="text" id="cliente" placeholder="Ej. SALUTARE" required>
+          </div>
+          <div class="af-field">
+            <label for="articulo">Artículo</label>
+            <input type="text" id="articulo" placeholder="Ej. SUPERPACK" required>
+          </div>
+        </div>
+        <div class="af-row2">
+          <div class="af-field">
+            <label for="codigo">Código de producto</label>
+            <input type="text" id="codigo" placeholder="Ej. FT-AF0013">
+          </div>
+          <div class="af-field">
+            <label for="realizado">Realizado por</label>
+            <input type="text" id="realizado" placeholder="Tu nombre">
+          </div>
+        </div>
+
+        <h2 style="margin-top:22px;">Caja de producto</h2>
+        <p class="af-card-hint">Dimensiones internas en milímetros.</p>
+        <div class="af-row3">
+          <div class="af-field">
+            <label for="largo">Largo (mm)</label>
+            <input type="number" id="largo" min="1" step="1" required>
+          </div>
+          <div class="af-field">
+            <label for="ancho">Ancho (mm)</label>
+            <input type="number" id="ancho" min="1" step="1" required>
+          </div>
+          <div class="af-field">
+            <label for="alto">Alto (mm)</label>
+            <input type="number" id="alto" min="1" step="1" required>
+          </div>
+        </div>
+
+        <h2 style="margin-top:22px;">Cartón</h2>
+        <div class="af-row2">
+          <div class="af-field">
+            <label for="tipoCarton">Tipo de cartón</label>
+            <select id="tipoCarton">
+              <option value="solido">Sólido (calibre en puntos)</option>
+              <option value="microcorrugado">Microcorrugado</option>
+            </select>
+          </div>
+          <div class="af-field">
+            <label for="calibre">Calibre</label>
+            <select id="calibre"></select>
+          </div>
+        </div>
+        <div class="af-field">
+          <label for="pegue">Tipo de pegue</label>
+          <select id="pegue">
+            <option value="charola">Charola (1 capa)</option>
+            <option value="lineal">Pegue lineal (3 capas)</option>
+            <option value="fondo_automatico">Fondo automático (4 capas)</option>
+            <option value="cuatro_esquinas">4 esquinas (7 capas)</option>
+          </select>
+        </div>
+
+        <div class="af-note">
+          <b>Supuesto v1:</b> se suma el grosor de cartón (en el punto más grueso de la zona de pegue) a las 3 dimensiones de la caja para obtener su tamaño exterior real dentro del corrugado. Falta confirmar cómo encaja esto con el manejo en "postetas" que se ve en las fichas de ejemplo — el cálculo se ajusta en cuanto se defina.
+        </div>
+
+        <button type="submit" class="af-btn af-btn-primary af-btn-full" style="margin-top:18px;">Calcular mejor empaque</button>
+      </form>
+    </div>
+
+    <!-- ====================== PREVIEW ====================== -->
+    <div id="preview-container">
+      <div class="af-card">
+        <div class="af-empty-state">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#5090c0" stroke-width="1.4">
+            <path d="M3 7l9-4 9 4-9 4-9-4z"/>
+            <path d="M3 7v10l9 4 9-4V7"/>
+            <path d="M12 11v10"/>
+          </svg>
+          <div>Completa el formulario y presiona <b>Calcular</b> para ver la ficha de embalaje.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script src="assets/js/data.js"></script>
+<script src="assets/js/packing.js"></script>
+<script src="assets/js/app.js"></script>
+</body>
+</html>
