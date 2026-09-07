@@ -289,7 +289,7 @@ html, body {
 /* ---------- 3D scene ---------- */
 .scene3d-wrap { position: relative; }
 .scene3d-perspective {
-  height: 340px;
+  height: 380px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -333,4 +333,34 @@ html, body {
   pointer-events: none;
 }
 .cama-legend { display: flex; gap: 16px; margin-top: 10px; font-size: 12.5px; }
-.cama-legend .dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.cama-legend .dot,
+.ficha-data-table .dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* ---------- Corrugado options list ---------- */
+.corr-list { display: flex; flex-direction: column; gap: 8px; }
+.corr-row {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr 1.6fr auto;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  background: var(--af-white);
+  border: 1.5px solid var(--af-border);
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.corr-row:hover { border-color: var(--af-blue-light); background: var(--af-blue-pale); }
+.corr-row-active { border-color: var(--af-blue); background: var(--af-blue-pale); box-shadow: 0 0 0 2px rgba(0,96,176,0.15); }
+.corr-row-id { font-weight: 700; color: var(--af-navy); }
+.corr-row-dims { color: var(--af-ink-soft); font-size: 12px; }
+.corr-row-detail { color: var(--af-ink-soft); font-size: 12px; }
+.corr-row-total { font-weight: 800; color: var(--af-blue); white-space: nowrap; }
+
+@media (max-width: 700px) {
+  .corr-row { grid-template-columns: 1fr; row-gap: 4px; }
+}

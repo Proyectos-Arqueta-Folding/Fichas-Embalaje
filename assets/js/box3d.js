@@ -101,32 +101,66 @@ function postetaStripes(colorBase, lineas) {
   return `repeating-linear-gradient(to bottom, ${colorBase} 0px, ${colorBase} ${step * 0.72}%, rgba(0,0,0,0.16) ${step * 0.72}%, rgba(0,0,0,0.16) ${step}%)`;
 }
 
-/** Vista: postetas (piezas dobladas apiladas) acomodadas dentro del corrugado. */
-function renderProductScene(mountEl, { corrugado, acomodo, grosorPiezaMm }) {
+// Convierte una coordenada "desde el borde/piso" (mm) de un eje horizontal
+// (largo->X, ancho->Z) a la coordenada centrada que usa `anchored()`.
+function horizCoord(centerDesdeBorde, dimTotal, scale) {
+  return centerDesdeBorde * scale - (dimTotal * scale) / 2;
+}
+// Igual, pero para el eje vertical (alto->Y), que va invertido porque
+// `anchored()` niega la Y (CSS crece hacia abajo).
+function vertCoord(centerDesdeBorde, dimTotal, scale) {
+  return (dimTotal * scale) / 2 - centerDesdeBorde * scale;
+}
+
+/**
+ * Vista: postetas (piezas dobladas apiladas) acomodadas dentro del
+ * corrugado. Soporta VARIAS camas, cada una con su propio eje de apilado
+ * (parada = alto, acostada = largo o ancho) — se dibujan apiladas en el
+ * eje que usó la primera cama, dejando que cada una tenga su propia
+ * orientación interna.
+ */
+function renderProductScene(mountEl, { corrugado, estrategia, grosorPiezaMm }) {
   const { largo, ancho, alto } = corrugado; // mm: largo->X, ancho->Z, alto->Y
-  const { orientacion, cols, filas, piezasPorPosteta } = acomodo;
   const scale = SCENE_PX / Math.max(largo, ancho, alto);
-
   const contW = largo * scale, contH = alto * scale, contD = ancho * scale;
-  const boxW = orientacion.x * scale, boxD = orientacion.y * scale;
-  const boxH = Math.min(alto, piezasPorPosteta * grosorPiezaMm) * scale;
 
-  const color = CAMA_COLORS[0];
+  const offsets = { largo: 0, ancho: 0, alto: 0 };
   let units = '';
-  for (let i = 0; i < cols; i++) {
-    for (let j = 0; j < filas; j++) {
-      const cx = (i + 0.5) * boxW - contW / 2;
-      const cz = (j + 0.5) * boxD - contD / 2;
-      const cy = (contH - boxH) / 2; // posteta parada desde el piso del corrugado
-      units += anchored(cx, cy, cz, cuboidHTML({
-        w: boxW * 0.92, h: boxH, d: boxD * 0.92,
-        colorTop: color.top,
-        colorFront: postetaStripes(color.front, piezasPorPosteta / 3),
-        colorSide: postetaStripes(color.side, piezasPorPosteta / 3),
-        border: 'box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);',
-      }));
+
+  estrategia.camas.forEach((cama, camaIndex) => {
+    const color = CAMA_COLORS[camaIndex % CAMA_COLORS.length];
+    const stackLen = cama.apiladas * grosorPiezaMm;
+    const stackCenter = offsets[cama.ejeApilado] + stackLen / 2;
+
+    for (let i = 0; i < cama.cols; i++) {
+      for (let j = 0; j < cama.filas; j++) {
+        const centers = {};
+        centers[cama.ejeApilado] = stackCenter;
+        centers[cama.ejeA] = offsets[cama.ejeA] + (i + 0.5) * cama.dimA;
+        centers[cama.ejeB] = offsets[cama.ejeB] + (j + 0.5) * cama.dimB;
+
+        const sizes = {};
+        sizes[cama.ejeApilado] = stackLen;
+        sizes[cama.ejeA] = cama.dimA;
+        sizes[cama.ejeB] = cama.dimB;
+
+        const cx = horizCoord(centers.largo, largo, scale);
+        const cz = horizCoord(centers.ancho, ancho, scale);
+        const cy = vertCoord(centers.alto, alto, scale);
+        const boxW = sizes.largo * scale, boxD = sizes.ancho * scale, boxH = sizes.alto * scale;
+
+        units += anchored(cx, cy, cz, cuboidHTML({
+          w: boxW * 0.92, h: boxH * 0.92, d: boxD * 0.92,
+          colorTop: color.top,
+          colorFront: postetaStripes(color.front, cama.piezasPorPosteta / 3),
+          colorSide: postetaStripes(color.side, cama.piezasPorPosteta / 3),
+          border: 'box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);',
+        }));
+      }
     }
-  }
+
+    offsets[cama.ejeApilado] += stackLen;
+  });
 
   const container = anchored(0, 0, 0, cuboidHTML({
     w: contW, h: contH, d: contD,
@@ -154,8 +188,14 @@ function renderPalletScene(mountEl, { corrugado, estiba }) {
   const corrAncho = estiba.rotado ? corrugado.largo : corrugado.ancho;
   const { cols, filas, camas } = estiba;
 
-  const sceneMax = Math.max(largoTarimaMm, anchoTarimaMm, altoTarimaMm + camas * corrugado.alto);
-  const scale = SCENE_PX / sceneMax;
+  // La tarima suele quedar más alta que ancha (varias camas de corrugados
+  // apiladas) — se usa una escena más chica y se mide la ARISTA MÁS LARGA
+  // real (no el máximo por eje) para que quepa completa con la cámara
+  // inclinada, sin recortarse contra el borde del panel.
+  const totalAlto = altoTarimaMm + camas * corrugado.alto;
+  const diagonalPiso = Math.hypot(largoTarimaMm, anchoTarimaMm);
+  const sceneMax = Math.max(diagonalPiso, totalAlto) * 1.15;
+  const scale = (SCENE_PX * 0.8) / sceneMax;
 
   const palletW = largoTarimaMm * scale, palletD = anchoTarimaMm * scale, palletH = altoTarimaMm * scale;
   const boxW = corrLargo * scale, boxD = corrAncho * scale, boxH = corrugado.alto * scale;

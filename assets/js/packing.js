@@ -1,10 +1,19 @@
 /**
- * Motor de cálculo de empaque — v2 (modelo de posteta, confirmado con el
- * usuario 2026-09-07).
+ * Motor de cálculo de empaque — v3 (multi-eje, multi-cama, confirmado con
+ * el usuario 2026-09-07 y 2026-09-08).
  *
- * La caja de producto se maneja DOBLADA (plana), no armada en 3D: se
- * apilan varias piezas dobladas para formar una "posteta", y las postetas
- * (paradas) se acomodan en el piso del corrugado.
+ * La caja de producto se maneja DOBLADA (plana), no armada en 3D. Una
+ * "posteta" es una pila de piezas dobladas. La posteta puede apilarse a
+ * lo largo de CUALQUIERA de los 3 ejes del corrugado (parada = apila en
+ * el alto, acostada = apila en el largo o en el ancho) — el objetivo es
+ * probar las 3 y quedarse con la que da más piezas.
+ *
+ * Además, dentro de un mismo corrugado puede haber VARIAS camas, y no
+ * todas tienen que usar el mismo eje: si la primera cama (la mejor
+ * opción pura) deja un sobrante de espacio en su eje de apilado, ese
+ * sobrante se vuelve a evaluar como un mini-corrugado (probando otra vez
+ * los 3 ejes) para minimizar el espacio muerto — así una cama puede
+ * quedar parada y la siguiente acostada, aprovechando el hueco.
  */
 
 /**
@@ -55,41 +64,127 @@ function grosorPiezaMm({ tipo, calibre, pegue }) {
   return espesorCapa * capas;
 }
 
+/** De 2 medidas de footprint (f1, f2) y 2 dimensiones disponibles (dimA, dimB),
+ * regresa el cruce que da más piezas (probando las 2 formas de acomodarlas). */
+function mejorFootprint(dimA, dimB, f1, f2) {
+  const op1 = { colsA: Math.floor(dimA / f1), colsB: Math.floor(dimB / f2) };
+  const op2 = { colsA: Math.floor(dimA / f2), colsB: Math.floor(dimB / f1) };
+  const c1 = op1.colsA * op1.colsB;
+  const c2 = op2.colsA * op2.colsB;
+  return c1 >= c2
+    ? { colsA: op1.colsA, colsB: op1.colsB, count: c1, dimsAB: [f1, f2] }
+    : { colsA: op2.colsA, colsB: op2.colsB, count: c2, dimsAB: [f2, f1] };
+}
+
 /**
- * Evalúa un corrugado contra una pieza doblada: la posteta se apila
- * (piezas paradas) hasta llenar el alto del corrugado, y las postetas se
- * acomodan en el piso (largo x ancho) probando las 2 orientaciones
- * posibles del rectángulo doblado. Regresa TODAS las opciones válidas,
- * ordenadas de mayor a menor total, para permitir selección manual.
+ * Evalúa un espacio (largo/ancho/alto disponibles) contra una pieza
+ * doblada, probando los 3 posibles ejes de apilado (parada = eje alto,
+ * acostada = eje largo o ancho). Regresa TODAS las opciones válidas,
+ * ordenadas de mayor a menor total de piezas.
  */
-function evaluarCorrugado(corrugado, { largoDoblado, altoDoblado }, grosorPieza) {
-  const piezasPorPosteta = Math.floor(corrugado.alto / grosorPieza);
-  if (piezasPorPosteta <= 0) return [];
+function evaluarEspacio({ largo, ancho, alto }, { largoDoblado, altoDoblado }, grosorPieza) {
+  const candidatos = [];
 
-  const orientacionesPosteta = [
-    { x: largoDoblado, y: altoDoblado },
-    { x: altoDoblado, y: largoDoblado },
-  ];
-
-  const opciones = [];
-  for (const { x, y } of orientacionesPosteta) {
-    if (x <= 0 || y <= 0) continue;
-    const cols = Math.floor(corrugado.largo / x);
-    const filas = Math.floor(corrugado.ancho / y);
-    const postetasPorCama = cols * filas;
-    if (postetasPorCama <= 0) continue;
-    const total = postetasPorCama * piezasPorPosteta;
-    opciones.push({ orientacion: { x, y }, cols, filas, postetasPorCama, piezasPorPosteta, total });
+  // Parada: se apila en el alto; el footprint doblado ocupa el piso (largo x ancho).
+  {
+    const apiladas = Math.floor(alto / grosorPieza);
+    if (apiladas > 0) {
+      const fp = mejorFootprint(largo, ancho, largoDoblado, altoDoblado);
+      if (fp.count > 0) {
+        candidatos.push({
+          ejeApilado: 'alto', orientacionLabel: 'Parada',
+          apiladas, cols: fp.colsA, filas: fp.colsB, postetasPorCama: fp.count,
+          piezasPorPosteta: apiladas, total: fp.count * apiladas,
+          ejeA: 'largo', ejeB: 'ancho', dimA: fp.dimsAB[0], dimB: fp.dimsAB[1],
+        });
+      }
+    }
   }
-  opciones.sort((a, b) => b.total - a.total);
-  return opciones;
+
+  // Acostada (eje largo): se apila a lo largo del corrugado; el footprint
+  // doblado ocupa la cara (ancho x alto).
+  {
+    const apiladas = Math.floor(largo / grosorPieza);
+    if (apiladas > 0) {
+      const fp = mejorFootprint(ancho, alto, largoDoblado, altoDoblado);
+      if (fp.count > 0) {
+        candidatos.push({
+          ejeApilado: 'largo', orientacionLabel: 'Acostada (a lo largo)',
+          apiladas, cols: fp.colsA, filas: fp.colsB, postetasPorCama: fp.count,
+          piezasPorPosteta: apiladas, total: fp.count * apiladas,
+          ejeA: 'ancho', ejeB: 'alto', dimA: fp.dimsAB[0], dimB: fp.dimsAB[1],
+        });
+      }
+    }
+  }
+
+  // Acostada (eje ancho): se apila a lo ancho del corrugado; el footprint
+  // doblado ocupa la cara (largo x alto).
+  {
+    const apiladas = Math.floor(ancho / grosorPieza);
+    if (apiladas > 0) {
+      const fp = mejorFootprint(largo, alto, largoDoblado, altoDoblado);
+      if (fp.count > 0) {
+        candidatos.push({
+          ejeApilado: 'ancho', orientacionLabel: 'Acostada (a lo ancho)',
+          apiladas, cols: fp.colsA, filas: fp.colsB, postetasPorCama: fp.count,
+          piezasPorPosteta: apiladas, total: fp.count * apiladas,
+          ejeA: 'largo', ejeB: 'alto', dimA: fp.dimsAB[0], dimB: fp.dimsAB[1],
+        });
+      }
+    }
+  }
+
+  candidatos.sort((a, b) => b.total - a.total);
+  return candidatos;
+}
+
+const MAX_CAMAS = 4;
+
+/**
+ * Arma una ESTRATEGIA completa para un corrugado: empieza con una opción
+ * de primera cama y va llenando el espacio sobrante (en el eje que usó
+ * esa cama) de forma golosa, permitiendo que cada cama siguiente use un
+ * eje distinto (parada/acostada) si eso aprovecha mejor el hueco.
+ */
+function armarEstrategia(corrugadoDims, primeraCama, doblada, grosorPieza) {
+  const camas = [primeraCama];
+  let total = primeraCama.total;
+  let slot = { ...corrugadoDims };
+  slot[primeraCama.ejeApilado] -= primeraCama.apiladas * grosorPieza;
+
+  for (let i = 1; i < MAX_CAMAS; i++) {
+    if (Object.values(slot).some((v) => v < 0)) break;
+    const opciones = evaluarEspacio(slot, doblada, grosorPieza);
+    if (opciones.length === 0 || opciones[0].total <= 0) break;
+    const siguiente = opciones[0];
+    camas.push(siguiente);
+    total += siguiente.total;
+    slot = { ...slot };
+    slot[siguiente.ejeApilado] -= siguiente.apiladas * grosorPieza;
+  }
+
+  return { camas, total };
+}
+
+/**
+ * Evalúa un corrugado completo: genera una estrategia por cada opción
+ * posible de primera cama (parada / acostada-largo / acostada-ancho), y
+ * regresa todas ordenadas de mayor a menor total, para poder comparar y
+ * seleccionar manualmente.
+ */
+function evaluarCorrugado(corrugado, doblada, grosorPieza) {
+  const primeras = evaluarEspacio(corrugado, doblada, grosorPieza);
+  const estrategias = primeras.map((primera) => armarEstrategia(corrugado, primera, doblada, grosorPieza));
+  estrategias.sort((a, b) => b.total - a.total);
+  return estrategias;
 }
 
 /**
  * Punto de entrada principal: recibe las dimensiones ARMADAS de la caja de
  * producto + calibre + pegue, y regresa el corrugado que maximiza el total
- * de piezas, junto con TODAS las opciones evaluadas por corrugado (para que
- * la UI permita cambiar de corrugado/orientación manualmente).
+ * de piezas, junto con TODAS las estrategias evaluadas por corrugado (para
+ * que la UI permita cambiar de corrugado/estrategia manualmente).
  */
 function calcularMejorEmpaque({ largo, ancho, alto, tipoCarton, calibre, pegue }) {
   const doblada = medidaDoblada({ largo, ancho, alto, pegue });
