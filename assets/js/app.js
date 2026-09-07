@@ -1,5 +1,13 @@
 const $ = (sel) => document.querySelector(sel);
 
+$('#dieline-img').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  const box = $('#dieline-preview');
+  if (!file) { box.innerHTML = ''; return; }
+  const url = URL.createObjectURL(file);
+  box.innerHTML = `<img src="${url}" style="max-width:100%;border-radius:8px;border:1px solid var(--af-border);margin-top:6px;">`;
+});
+
 const tipoCartonSelect = $('#tipoCarton');
 const calibreSelect = $('#calibre');
 
@@ -53,7 +61,18 @@ function renderFicha(input, resultado) {
     </div>
   `).join('');
 
+  const legend = Array.from({ length: acomodo.camas }).map((_, i) => `
+    <span><span class="dot" style="background:${i === 0 ? '#0060b0' : '#5090c0'}"></span>Cama ${i + 1}: ${acomodo.porCama} pzs</span>
+  `).join('');
+
   container.innerHTML = `
+    <div class="af-card">
+      <h2>Vista 3D interactiva</h2>
+      <p class="af-card-hint">${corrugado.id} — ${acomodo.camas} cama${acomodo.camas > 1 ? 's' : ''} de ${acomodo.porCama} pzs cada una (${acomodo.cols} × ${acomodo.filas})</p>
+      <div id="scene3d-mount"></div>
+      <div class="cama-legend">${legend}</div>
+    </div>
+
     <div class="ficha">
       <div class="ficha-header">
         <div class="ficha-title-block">
@@ -128,6 +147,8 @@ function renderFicha(input, resultado) {
       </div>
     </div>
   `;
+
+  renderBox3D($('#scene3d-mount'), { corrugado, acomodo });
 }
 
 $('#ficha-form').addEventListener('submit', (e) => {

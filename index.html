@@ -96,8 +96,15 @@
           </select>
         </div>
 
+        <h2 style="margin-top:22px;">Referencia (opcional)</h2>
+        <p class="af-card-hint">Sube la foto del troquel/plano de la caja extendida. Por ahora solo se muestra como referencia visual — la detección automática de medidas está en diseño, ver nota abajo.</p>
+        <div class="af-field">
+          <input type="file" id="dieline-img" accept="image/*">
+        </div>
+        <div id="dieline-preview"></div>
+
         <div class="af-note">
-          <b>Supuesto v1:</b> se suma el grosor de cartón (en el punto más grueso de la zona de pegue) a las 3 dimensiones de la caja para obtener su tamaño exterior real dentro del corrugado. Falta confirmar cómo encaja esto con el manejo en "postetas" que se ve en las fichas de ejemplo — el cálculo se ajusta en cuanto se defina.
+          <b>Supuesto v1 a validar:</b> el motor de cálculo todavía trata la caja como un cuerpo rígido armado (largo/ancho/alto ya erectos + grosor de cartón en las 3 caras). Pendiente: reemplazarlo por la conversión real caja extendida → caja armada según el tipo de pegue, en cuanto se confirme la fórmula.
         </div>
 
         <button type="submit" class="af-btn af-btn-primary af-btn-full" style="margin-top:18px;">Calcular mejor empaque</button>
@@ -122,6 +129,7 @@
 
 <script src="assets/js/data.js"></script>
 <script src="assets/js/packing.js"></script>
+<script src="assets/js/box3d.js"></script>
 <script src="assets/js/app.js"></script>
 </body>
 </html>
