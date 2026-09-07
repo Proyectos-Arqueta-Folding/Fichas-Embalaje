@@ -44,6 +44,12 @@ function estrategiaLabel(estrategia) {
   return estrategia.camas.map((c) => `${c.orientacionLabel} ${c.cols}×${c.filas}×${c.piezasPorPosteta}`).join(' + ');
 }
 
+// Resume el piso de una cama de la tarima: "6 cajas" o, si mezcla
+// orientaciones, "6 cajas (4 + 2 rotadas)".
+function pisoLabel(piso) {
+  return piso.extra > 0 ? `${piso.total} cajas (${piso.principal} + ${piso.extra} rotadas)` : `${piso.total} cajas`;
+}
+
 // Estado del último cálculo, para que los selectores manuales de
 // corrugado/estrategia puedan re-renderizar sin recalcular el grosor.
 let state = null;
@@ -127,6 +133,10 @@ function render({ scrollToScene = false } = {}) {
   const estiba = calcularEstibaEnTarima(corrugado);
   const fecha = new Date().toLocaleDateString('es-MX');
 
+  const usarExtendida = !!state.alturaExtendida;
+  const camasMostradas = usarExtendida ? estiba.camasExtendidas : estiba.camas;
+  const totalMostrado = usarExtendida ? estiba.totalExtendido : estiba.total;
+
   const camasFilas = estrategia.camas.map((c, i) => `
     <tr>
       <td class="label"><span class="dot" style="background:${i === 0 ? '#0060b0' : '#5090c0'}"></span>Cama ${i + 1} — ${c.orientacionLabel}</td>
@@ -135,8 +145,8 @@ function render({ scrollToScene = false } = {}) {
     </tr>
   `).join('');
 
-  const corrLegend = Array.from({ length: estiba.camas }).map((_, i) => `
-    <span><span class="dot" style="background:${i === 0 ? '#c49a5e' : '#b3854a'}"></span>Cama de corrugados ${i + 1}: ${estiba.porCama} cajas</span>
+  const corrLegend = Array.from({ length: camasMostradas }).map((_, i) => `
+    <span><span class="dot" style="background:${i === 0 ? '#c49a5e' : '#b3854a'}"></span>Cama ${i + 1}: ${pisoLabel(estiba.piso)}</span>
   `).join('');
 
   container.innerHTML = `
@@ -162,16 +172,26 @@ function render({ scrollToScene = false } = {}) {
     <div class="af-card">
       <h2>Vista 3D — corrugados sobre la tarima</h2>
       <p class="af-card-hint">
-        Tarima ${TARIMA.largo_cm}×${TARIMA.ancho_cm} cm, alto útil ${TARIMA.alto_util_cm} cm (aprox., usa medidas internas del corrugado)
+        Tarima ${TARIMA.largo_cm}×${TARIMA.ancho_cm} cm (aprox., usa medidas internas del corrugado)
       </p>
       <div id="scene3d-pallet"></div>
       <div class="cama-legend">${corrLegend}</div>
       <div class="stat-strip">
-        <div class="stat"><div class="num">${estiba.cols} × ${estiba.filas}</div><div class="lbl">Corrugados por cama</div></div>
-        <div class="stat"><div class="num">${estiba.camas}</div><div class="lbl">Camas en la tarima</div></div>
-        <div class="stat"><div class="num">${estiba.total}</div><div class="lbl">Corrugados por tarima</div></div>
-        <div class="stat"><div class="num">${estiba.total * estrategia.total}</div><div class="lbl">Piezas por tarima</div></div>
+        <div class="stat"><div class="num">${estiba.piso.total}</div><div class="lbl">Cantidad por cama</div></div>
+        <div class="stat"><div class="num">${camasMostradas}</div><div class="lbl">Estiba (camas)</div></div>
+        <div class="stat"><div class="num">${totalMostrado}</div><div class="lbl">Corrugados por tarima</div></div>
+        <div class="stat"><div class="num">${totalMostrado * estrategia.total}</div><div class="lbl">Piezas por tarima</div></div>
       </div>
+      ${estiba.piso.extra > 0 ? `<div class="af-note" style="margin-top:14px;">Este acomodo mezcla orientaciones: ${estiba.piso.principal} corrugados en la orientación principal + ${estiba.piso.extra} rotados 90° aprovechando la tira sobrante.</div>` : ''}
+      ${estiba.excedeAlturaNormal ? `
+        <div class="af-note" style="margin-top:14px; background:#fdeaea; border-color:#e8b4b4; color:#8a2a2a;">
+          <b>⚠️ Aviso de altura:</b> con ${estiba.camas} cama${estiba.camas > 1 ? 's' : ''} el bulto mide dentro del alto útil normal (${TARIMA.alto_util_cm} cm).
+          Esta tarima admite hasta ${estiba.camasExtendidas} camas si se permite llegar al alto total de la tarima (${TARIMA.alto_total_cm} cm) — eso da ${estiba.totalExtendido} corrugados en vez de ${estiba.total}, pero excede el límite normal de manejo.
+          <label style="display:block; margin-top:8px; font-weight:600;">
+            <input type="checkbox" id="chk-altura-extendida" ${usarExtendida ? 'checked' : ''}> Mostrar opción extendida (${estiba.camasExtendidas} camas)
+          </label>
+        </div>
+      ` : ''}
     </div>
 
     <div class="ficha">
@@ -193,20 +213,24 @@ function render({ scrollToScene = false } = {}) {
 
       <table class="ficha-data-table">
         <tr>
-          <td class="label">Tipo de corrugado</td><td class="value">${corrugado.id}</td>
-          <td class="label">Estrategia</td><td class="value">${estrategiaLabel(estrategia)}</td>
+          <td class="label">Tipo de Caja</td><td class="value">${corrugado.id}</td>
+          <td class="label">Cantidad por Cama</td><td class="value">${pisoLabel(estiba.piso)}</td>
         </tr>
         <tr>
-          <td class="label">Dimensiones internas corrugado</td><td class="value">${corrugado.largo} × ${corrugado.ancho} × ${corrugado.alto} mm</td>
-          <td class="label">Camas</td><td class="value">${estrategia.camas.length}</td>
+          <td class="label">Dimensiones Internas</td><td class="value">${corrugado.largo} × ${corrugado.ancho} × ${corrugado.alto} mm</td>
+          <td class="label">Estiba</td><td class="value">${camasMostradas} cajas${usarExtendida ? ' ⚠️ excede alto normal' : ''}</td>
         </tr>
         <tr>
-          <td class="label">Caja doblada (largo × alto)</td><td class="value">${fmt(largoDobladoMm)} × ${fmt(altoDobladoMm)} mm</td>
-          <td class="label">Grosor por pieza</td><td class="value">${fmt(grosorPiezaMm, 2)} mm</td>
+          <td class="label">Tarima</td><td class="value">${TARIMA.largo_cm} × ${TARIMA.ancho_cm} cm</td>
+          <td class="label">Postetas por corrugado</td><td class="value">${estrategiaLabel(estrategia)}</td>
         </tr>
         <tr>
-          <td class="label">Corrugados por tarima</td><td class="value">${estiba.total}</td>
-          <td class="label">Total de piezas por corrugado</td><td class="value" style="font-size:16px; color:var(--af-blue);">${estrategia.total} pzs</td>
+          <td class="label">Total de Piezas</td><td class="value" style="font-size:16px; color:var(--af-blue);">${estrategia.total} pzs</td>
+          <td class="label">Peso Bruto</td><td class="value">— (falta dato de peso)</td>
+        </tr>
+        <tr>
+          <td class="label">Corrugados por tarima</td><td class="value">${totalMostrado}</td>
+          <td class="label">Piezas por tarima</td><td class="value" style="font-size:16px; color:var(--af-blue);">${totalMostrado * estrategia.total} pzs</td>
         </tr>
       </table>
 
@@ -221,7 +245,7 @@ function render({ scrollToScene = false } = {}) {
   `;
 
   renderProductScene($('#scene3d-product'), { corrugado, estrategia, grosorPiezaMm });
-  renderPalletScene($('#scene3d-pallet'), { corrugado, estiba });
+  renderPalletScene($('#scene3d-pallet'), { corrugado, estiba, useExtendida: usarExtendida });
 
   $$('.corr-row').forEach((btn) => {
     btn.addEventListener('click', () => {
@@ -234,6 +258,13 @@ function render({ scrollToScene = false } = {}) {
     state.acomodoIndex = Number(e.target.value);
     render({ scrollToScene: true });
   });
+  const chkExtendida = $('#chk-altura-extendida');
+  if (chkExtendida) {
+    chkExtendida.addEventListener('change', (e) => {
+      state.alturaExtendida = e.target.checked;
+      render();
+    });
+  }
 
   if (scrollToScene) {
     $('#card-scene-product').scrollIntoView({ behavior: 'smooth', block: 'start' });

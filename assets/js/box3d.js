@@ -178,40 +178,56 @@ const CORR_COLORS = [
   { top: '#d8b98a', front: '#b3854a', side: '#8a6236' },
 ];
 
-/** Vista: corrugados acomodados sobre la tarima, por cama de corrugados. */
-function renderPalletScene(mountEl, { corrugado, estiba }) {
+/**
+ * Vista: corrugados acomodados sobre la tarima, por cama de corrugados.
+ * El piso de cada cama puede mezclar 2 orientaciones (grid principal +
+ * una tira sobrante con corrugados rotados 90°) — nunca se acuestan de
+ * lado, solo se rota el piso. `useExtendida` decide si se dibuja la
+ * altura seguro o la extendida (más camas, con aviso en la UI).
+ */
+function renderPalletScene(mountEl, { corrugado, estiba, useExtendida = false }) {
   const largoTarimaMm = TARIMA.largo_cm * 10;
   const anchoTarimaMm = TARIMA.ancho_cm * 10;
   const altoTarimaMm = TARIMA.alto_tarima_cm * 10;
+  const { piso } = estiba;
+  const camas = useExtendida ? estiba.camasExtendidas : estiba.camas;
 
-  const corrLargo = estiba.rotado ? corrugado.ancho : corrugado.largo;
-  const corrAncho = estiba.rotado ? corrugado.largo : corrugado.ancho;
-  const { cols, filas, camas } = estiba;
-
-  // La tarima suele quedar más alta que ancha (varias camas de corrugados
-  // apiladas) — se usa una escena más chica y se mide la ARISTA MÁS LARGA
-  // real (no el máximo por eje) para que quepa completa con la cámara
-  // inclinada, sin recortarse contra el borde del panel.
   const totalAlto = altoTarimaMm + camas * corrugado.alto;
   const diagonalPiso = Math.hypot(largoTarimaMm, anchoTarimaMm);
   const sceneMax = Math.max(diagonalPiso, totalAlto) * 1.15;
   const scale = (SCENE_PX * 0.8) / sceneMax;
 
   const palletW = largoTarimaMm * scale, palletD = anchoTarimaMm * scale, palletH = altoTarimaMm * scale;
-  const boxW = corrLargo * scale, boxD = corrAncho * scale, boxH = corrugado.alto * scale;
+  const boxW = piso.wPrincipal * scale, boxD = piso.wRotado * scale;
+  const exBoxW = piso.wRotado * scale, exBoxD = piso.wPrincipal * scale;
+  const boxH = corrugado.alto * scale;
 
   let units = '';
   for (let k = 0; k < camas; k++) {
     const color = CORR_COLORS[k % CORR_COLORS.length];
-    for (let i = 0; i < cols; i++) {
-      for (let j = 0; j < filas; j++) {
-        const cx = (i + 0.5) * boxW - (cols * boxW) / 2;
-        const cz = (j + 0.5) * boxD - (filas * boxD) / 2;
-        const cy = palletH / 2 + k * boxH + boxH / 2;
+    const cy = palletH / 2 + k * boxH + boxH / 2;
+
+    for (let i = 0; i < piso.cols; i++) {
+      for (let j = 0; j < piso.filas; j++) {
+        const cx = horizCoord((i + 0.5) * piso.wPrincipal, largoTarimaMm, scale);
+        const cz = horizCoord((j + 0.5) * piso.wRotado, anchoTarimaMm, scale);
         units += anchored(cx, cy, cz, cuboidHTML({
           w: boxW * 0.96, h: boxH * 0.96, d: boxD * 0.96,
           colorTop: color.top, colorFront: color.front, colorSide: color.side,
           border: 'box-shadow: inset 0 0 0 1px rgba(255,255,255,0.35);',
+        }));
+      }
+    }
+
+    const offsetX = piso.cols * piso.wPrincipal;
+    for (let i = 0; i < piso.extraCols; i++) {
+      for (let j = 0; j < piso.extraFilas; j++) {
+        const cx = horizCoord(offsetX + (i + 0.5) * piso.wRotado, largoTarimaMm, scale);
+        const cz = horizCoord((j + 0.5) * piso.wPrincipal, anchoTarimaMm, scale);
+        units += anchored(cx, cy, cz, cuboidHTML({
+          w: exBoxW * 0.96, h: boxH * 0.96, d: exBoxD * 0.96,
+          colorTop: color.top, colorFront: color.front, colorSide: color.side,
+          border: 'box-shadow: inset 0 0 0 2px rgba(255,255,255,0.6);',
         }));
       }
     }

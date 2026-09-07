@@ -216,29 +216,73 @@ function calcularMejorEmpaque({ largo, ancho, alto, tipoCarton, calibre, pegue }
 }
 
 /**
+ * Acomoda el corrugado en el piso de la tarima (dimA x dimB), probando las
+ * 2 orientaciones como base y, para cada una, si sobra una tira de piso
+ * después de la cuadrícula principal, intenta rellenarla con corrugados
+ * ROTADOS 90° — "no todos los corrugados deben tener la misma
+ * orientación", igual que se ve en las fichas reales (ej. AFFP0046: 1ra
+ * cama parada + 2da cama acostada). Los corrugados NUNCA se acuestan de
+ * lado (solo se rota el piso) — a diferencia de las postetas, un
+ * corrugado siempre se estiba parado.
+ */
+function evaluarPisoTarima(dimA, dimB, corrLargo, corrAncho) {
+  function base(wPrincipal, wRotado) {
+    const cols = Math.floor(dimA / wPrincipal);
+    const filas = Math.floor(dimB / wRotado);
+    const principal = cols * filas;
+    const sobranteA = dimA - cols * wPrincipal;
+
+    let extraCols = 0, extraFilas = 0, extra = 0;
+    if (sobranteA >= wRotado) {
+      extraCols = Math.floor(sobranteA / wRotado);
+      extraFilas = Math.floor(dimB / wPrincipal);
+      extra = extraCols * extraFilas;
+    }
+
+    return {
+      cols, filas, principal,
+      extraCols, extraFilas, extra,
+      total: principal + extra,
+      wPrincipal, wRotado, sobranteA,
+    };
+  }
+
+  const opcionA = base(corrLargo, corrAncho); // corrugado "normal" como base
+  const opcionB = base(corrAncho, corrLargo); // corrugado rotado 90° como base
+  const mejor = opcionA.total >= opcionB.total ? { ...opcionA, rotadoBase: false } : { ...opcionB, rotadoBase: true };
+  return mejor;
+}
+
+/**
  * Calcula cuántos corrugados caben en la tarima: acomodo 2D en el piso
- * (120x120 cm) y cuántas camas de corrugados caben en la altura útil
- * (100 cm). APROXIMACIÓN: se usan las dimensiones internas del corrugado
- * (únicas que tenemos en el catálogo) como si fueran las externas —
- * el grosor propio del corrugado (unos pocos mm de cartón) no está
- * modelado todavía, así que el conteo real puede ser 1-2 corrugados
- * menos por lado en la práctica.
+ * (mezclando orientaciones si eso da más piezas) y cuántas camas de
+ * corrugados caben en la altura. Da 2 opciones de altura: "segura"
+ * (dentro del alto útil normal) y "extendida" (usando el alto total de
+ * la tarima, con aviso porque excede el límite normal). APROXIMACIÓN: se
+ * usan las dimensiones internas del corrugado (únicas que tenemos en el
+ * catálogo) como si fueran las externas — el grosor propio del corrugado
+ * (unos pocos mm de cartón) no está modelado todavía, así que el conteo
+ * real puede ser 1-2 corrugados menos por lado en la práctica.
  */
 function calcularEstibaEnTarima(corrugado) {
   const largoTarima = TARIMA.largo_cm * 10; // mm
   const anchoTarima = TARIMA.ancho_cm * 10;
   const altoUtil = TARIMA.alto_util_cm * 10;
+  const altoTotal = TARIMA.alto_total_cm * 10;
 
-  const opciones = [
-    { cols: Math.floor(largoTarima / corrugado.largo), filas: Math.floor(anchoTarima / corrugado.ancho) },
-    { cols: Math.floor(largoTarima / corrugado.ancho), filas: Math.floor(anchoTarima / corrugado.largo) },
-  ].map((o) => ({ ...o, porCama: o.cols * o.filas }));
+  const piso = evaluarPisoTarima(largoTarima, anchoTarima, corrugado.largo, corrugado.ancho);
 
-  opciones.sort((a, b) => b.porCama - a.porCama);
-  const mejor = opciones[0];
+  const camasSeguras = Math.max(1, Math.floor(altoUtil / corrugado.alto));
+  const camasExtendidas = Math.max(camasSeguras, Math.floor(altoTotal / corrugado.alto));
 
-  const camas = Math.max(1, Math.floor(altoUtil / corrugado.alto));
-  const total = mejor.porCama * camas;
-
-  return { ...mejor, camas, total, aproximado: true };
+  return {
+    piso,
+    porCama: piso.total,
+    camas: camasSeguras,
+    total: piso.total * camasSeguras,
+    camasExtendidas,
+    totalExtendido: piso.total * camasExtendidas,
+    excedeAlturaNormal: camasExtendidas > camasSeguras,
+    aproximado: true,
+  };
 }
