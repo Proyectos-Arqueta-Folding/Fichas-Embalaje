@@ -38,39 +38,104 @@ function fmt(n, dec = 1) {
   return Number(n).toLocaleString('es-MX', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
-function renderFicha(input, resultado) {
+// Estado del último cálculo, para que los selectores manuales de
+// corrugado/orientación puedan re-renderizar sin recalcular el grosor.
+let state = null;
+
+function currentSelection() {
+  const entry = state.resultado.porCorrugado.find((p) => p.corrugado.id === state.corrugadoId);
+  const opcion = entry.opciones[state.acomodoIndex];
+  return { corrugado: entry.corrugado, acomodo: opcion, esMejor: entry.corrugado.id === state.resultado.porCorrugado[0].corrugado.id && state.acomodoIndex === 0 };
+}
+
+function renderControls() {
+  const { porCorrugado } = state.resultado;
+  const mejorId = porCorrugado[0].corrugado.id;
+  const entry = porCorrugado.find((p) => p.corrugado.id === state.corrugadoId);
+
+  const corrugadoOptions = porCorrugado.map((p) => `
+    <option value="${p.corrugado.id}" ${p.corrugado.id === state.corrugadoId ? 'selected' : ''}>
+      ${p.corrugado.id}${p.corrugado.id === mejorId ? ' (mejor)' : ''} — ${p.opciones[0].total} pzs
+    </option>
+  `).join('');
+
+  const orientacionOptions = entry.opciones.map((o, i) => `
+    <option value="${i}" ${i === state.acomodoIndex ? 'selected' : ''}>
+      ${o.cols} × ${o.filas} = ${o.porCama} pzs/cama × ${o.camas} cama${o.camas > 1 ? 's' : ''} = ${o.total} pzs
+    </option>
+  `).join('');
+
+  return `
+    <div class="af-card">
+      <h2>Comparar corrugado y orientación</h2>
+      <p class="af-card-hint">Cambia manualmente para comparar contra la recomendación automática.</p>
+      <div class="af-row2">
+        <div class="af-field">
+          <label>Corrugado</label>
+          <select id="sel-corrugado">${corrugadoOptions}</select>
+        </div>
+        <div class="af-field">
+          <label>Orientación</label>
+          <select id="sel-orientacion">${orientacionOptions}</select>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function render() {
   const container = $('#preview-container');
 
-  if (resultado.error) {
+  if (state.resultado.error) {
     container.innerHTML = `
       <div class="af-card">
         <div class="af-empty-state">
-          <div style="color:#c0392b; font-weight:600;">${resultado.error}</div>
+          <div style="color:#c0392b; font-weight:600;">${state.resultado.error}</div>
         </div>
       </div>`;
     return;
   }
 
-  const { corrugado, acomodo, grosorMm, cajaExteriorMm, alternativas } = resultado;
+  const { input, resultado } = state;
+  const { grosorMm, cajaExteriorMm } = resultado;
+  const { corrugado, acomodo, esMejor } = currentSelection();
+  const estiba = calcularEstibaEnTarima(corrugado);
   const fecha = new Date().toLocaleDateString('es-MX');
 
-  const altHtml = alternativas.map((a) => `
-    <div class="alt-row">
-      <span>${a.corrugado.id} <span style="color:var(--af-ink-soft)">(${a.corrugado.largo}×${a.corrugado.ancho}×${a.corrugado.alto} mm)</span></span>
-      <span class="qty">${a.acomodo.total} pzs</span>
-    </div>
-  `).join('');
-
-  const legend = Array.from({ length: acomodo.camas }).map((_, i) => `
+  const camaLegend = Array.from({ length: acomodo.camas }).map((_, i) => `
     <span><span class="dot" style="background:${i === 0 ? '#0060b0' : '#5090c0'}"></span>Cama ${i + 1}: ${acomodo.porCama} pzs</span>
   `).join('');
 
+  const corrLegend = Array.from({ length: estiba.camas }).map((_, i) => `
+    <span><span class="dot" style="background:${i === 0 ? '#c49a5e' : '#b3854a'}"></span>Cama de corrugados ${i + 1}: ${estiba.porCama} cajas</span>
+  `).join('');
+
   container.innerHTML = `
+    ${renderControls()}
+
     <div class="af-card">
-      <h2>Vista 3D interactiva</h2>
-      <p class="af-card-hint">${corrugado.id} — ${acomodo.camas} cama${acomodo.camas > 1 ? 's' : ''} de ${acomodo.porCama} pzs cada una (${acomodo.cols} × ${acomodo.filas})</p>
-      <div id="scene3d-mount"></div>
-      <div class="cama-legend">${legend}</div>
+      <h2>Vista 3D — caja dentro del corrugado</h2>
+      <p class="af-card-hint">
+        ${corrugado.id} — ${acomodo.camas} cama${acomodo.camas > 1 ? 's' : ''} de ${acomodo.porCama} pzs cada una (${acomodo.cols} × ${acomodo.filas})
+        ${esMejor ? '<span class="badge" style="margin-left:8px;">Recomendado</span>' : ''}
+      </p>
+      <div id="scene3d-product"></div>
+      <div class="cama-legend">${camaLegend}</div>
+    </div>
+
+    <div class="af-card">
+      <h2>Vista 3D — corrugados sobre la tarima</h2>
+      <p class="af-card-hint">
+        Tarima ${TARIMA.largo_cm}×${TARIMA.ancho_cm} cm, alto útil ${TARIMA.alto_util_cm} cm (aprox., usa medidas internas del corrugado)
+      </p>
+      <div id="scene3d-pallet"></div>
+      <div class="cama-legend">${corrLegend}</div>
+      <div class="stat-strip">
+        <div class="stat"><div class="num">${estiba.cols} × ${estiba.filas}</div><div class="lbl">Corrugados por cama</div></div>
+        <div class="stat"><div class="num">${estiba.camas}</div><div class="lbl">Camas en la tarima</div></div>
+        <div class="stat"><div class="num">${estiba.total}</div><div class="lbl">Corrugados por tarima</div></div>
+        <div class="stat"><div class="num">${estiba.total * acomodo.total}</div><div class="lbl">Piezas por tarima</div></div>
+      </div>
     </div>
 
     <div class="ficha">
@@ -90,30 +155,6 @@ function renderFicha(input, resultado) {
         </div>
       </div>
 
-      <div class="ficha-body">
-        <div class="ficha-diagram">
-          <h3>Empaque</h3>
-          <svg width="220" height="160" viewBox="0 0 220 160">
-            <polygon points="40,60 120,40 200,60 120,80" fill="#eaf3fb" stroke="#0b2a4a" stroke-width="1.5"/>
-            <polygon points="40,60 40,130 120,150 120,80" fill="#d7e3ee" stroke="#0b2a4a" stroke-width="1.5"/>
-            <polygon points="120,80 120,150 200,130 200,60" fill="#c3d6e8" stroke="#0b2a4a" stroke-width="1.5"/>
-          </svg>
-          <div style="font-size:12px; color:var(--af-ink-soft);">
-            ${corrugado.largo} × ${corrugado.ancho} × ${corrugado.alto} mm (${corrugado.id})
-          </div>
-        </div>
-        <div class="ficha-diagram">
-          <h3>Entarimado</h3>
-          <svg width="180" height="160" viewBox="0 0 180 160">
-            <polygon points="30,140 90,160 150,140 90,120" fill="#c3d6e8" stroke="#0b2a4a" stroke-width="1.5"/>
-            ${Array.from({ length: Math.min(acomodo.camas, 4) }).map((_, i) => `
-              <rect x="45" y="${100 - i * 22}" width="90" height="18" fill="${i % 2 === 0 ? '#5090c0' : '#0060b0'}" stroke="#0b2a4a" stroke-width="1"/>
-            `).join('')}
-          </svg>
-          <div style="font-size:12px; color:var(--af-ink-soft);">Tarima ${TARIMA.largo_cm}×${TARIMA.ancho_cm} cm · alto útil ${TARIMA.alto_util_cm} cm</div>
-        </div>
-      </div>
-
       <table class="ficha-data-table">
         <tr>
           <td class="label">Tipo de corrugado</td><td class="value">${corrugado.id}</td>
@@ -128,17 +169,12 @@ function renderFicha(input, resultado) {
           <td class="label">Grosor aplicado</td><td class="value">${fmt(grosorMm, 2)} mm</td>
         </tr>
         <tr>
-          <td class="label">Total de piezas por corrugado</td><td class="value" colspan="3" style="font-size:16px; color:var(--af-blue);">${acomodo.total} pzs</td>
+          <td class="label">Corrugados por tarima</td><td class="value">${estiba.total}</td>
+          <td class="label">Total de piezas por corrugado</td><td class="value" style="font-size:16px; color:var(--af-blue);">${acomodo.total} pzs</td>
         </tr>
       </table>
 
       <div class="ficha-footer">AF-FR-PP-02 FICHA DE EMBALAJE — Prototipo v1</div>
-    </div>
-
-    <div class="af-card alt-list">
-      <h2>Otros corrugados evaluados</h2>
-      <p class="af-card-hint">Se eligió ${corrugado.id} por dar el mayor total de piezas. Comparación con las siguientes 3 opciones:</p>
-      ${altHtml || '<div style="font-size:13px;color:var(--af-ink-soft)">No hay otras opciones donde la caja quepa.</div>'}
     </div>
 
     <div class="af-card">
@@ -148,7 +184,18 @@ function renderFicha(input, resultado) {
     </div>
   `;
 
-  renderBox3D($('#scene3d-mount'), { corrugado, acomodo });
+  renderProductScene($('#scene3d-product'), { corrugado, acomodo });
+  renderPalletScene($('#scene3d-pallet'), { corrugado, estiba });
+
+  $('#sel-corrugado').addEventListener('change', (e) => {
+    state.corrugadoId = e.target.value;
+    state.acomodoIndex = 0;
+    render();
+  });
+  $('#sel-orientacion').addEventListener('change', (e) => {
+    state.acomodoIndex = Number(e.target.value);
+    render();
+  });
 }
 
 $('#ficha-form').addEventListener('submit', (e) => {
@@ -168,5 +215,11 @@ $('#ficha-form').addEventListener('submit', (e) => {
   };
 
   const resultado = calcularMejorEmpaque(input);
-  renderFicha(input, resultado);
+
+  if (resultado.error) {
+    state = { input, resultado };
+  } else {
+    state = { input, resultado, corrugadoId: resultado.corrugadoId, acomodoIndex: 0 };
+  }
+  render();
 });
