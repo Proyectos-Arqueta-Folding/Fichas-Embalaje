@@ -74,13 +74,17 @@ function grosorPiezaMm({ tipo, calibre, pegue }) {
  * piso de dimA x dimB, y si sobra una tira después de la cuadrícula
  * principal, la rellena con MÁS rectángulos rotados 90°.
  *
- * SIMETRÍA (confirmado con el usuario): rotar está permitido, pero el
- * grupo rotado solo se acepta si forma un BLOQUE COMPLETO a ras con la
- * cuadrícula principal (misma profundidad). Si no alcanza a llegar,
- * quedarían unas pocas cajas sueltas en la orilla — y esas se dañan.
- * En ese caso se prefiere dejar el hueco vacío.
+ * SIMETRÍA (confirmado con el usuario), controlada por `exigirSimetria`:
+ *
+ *  - DENTRO del corrugado (postetas): sí se exige. El grupo rotado solo
+ *    se acepta si forma un BLOQUE COMPLETO a ras con la cuadrícula
+ *    principal (misma profundidad). Si no alcanza, quedarían unas pocas
+ *    cajas sueltas en la orilla y esas se dañan, así que se prefiere
+ *    dejar el hueco vacío.
+ *  - En la TARIMA (corrugados): no se exige. Ahí los corrugados van
+ *    apoyados sobre la tarima, así que mientras quepan se aprovechan.
  */
-function piso2D(dimA, dimB, f1, f2) {
+function piso2D(dimA, dimB, f1, f2, exigirSimetria = true) {
   function intento(wA, wB) {
     const cols = Math.floor(dimA / wA);
     const filas = Math.floor(dimB / wB);
@@ -93,8 +97,8 @@ function piso2D(dimA, dimB, f1, f2) {
       const posiblesCols = Math.floor(sobranteA / wB);
       const posiblesFilas = Math.floor(dimB / wA);
       const fondoRotado = posiblesFilas * wA;
-      // Solo si el bloque rotado llega al mismo fondo que el principal.
-      if (posiblesCols > 0 && posiblesFilas > 0 && fondoRotado >= fondoPrincipal - MIN_UTIL_MM) {
+      const aRas = fondoRotado >= fondoPrincipal - MIN_UTIL_MM;
+      if (posiblesCols > 0 && posiblesFilas > 0 && (aRas || !exigirSimetria)) {
         extraCols = posiblesCols;
         extraFilas = posiblesFilas;
         extra = extraCols * extraFilas;
@@ -287,7 +291,8 @@ function calcularMejorEmpaque({ largo, ancho, alto, tipoCarton, calibre, pegue }
  * corrugado siempre se estiba parado.
  */
 function evaluarPisoTarima(dimA, dimB, corrLargo, corrAncho) {
-  const p = piso2D(dimA, dimB, corrLargo, corrAncho);
+  // Sin exigir simetría: en la tarima, mientras quepan, se aprovechan.
+  const p = piso2D(dimA, dimB, corrLargo, corrAncho, false);
   return {
     cols: p.cols, filas: p.filas, principal: p.principal,
     extraCols: p.extraCols, extraFilas: p.extraFilas, extra: p.extra,
