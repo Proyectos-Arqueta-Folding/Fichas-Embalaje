@@ -4,6 +4,9 @@ node_modules/
 .env
 .env.local
 
+# Archivos de bloqueo que crea Excel/Word al abrir un documento.
+~$*
+
 # --- Datos fuente: NO se suben ---
 # El repo va a ser publico (GitHub Pages), y estos archivos traen
 # nombres de clientes reales y precios/costos. Se quedan en la carpeta
