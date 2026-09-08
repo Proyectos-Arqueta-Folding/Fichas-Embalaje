@@ -333,3 +333,22 @@ $('#ficha-form').addEventListener('submit', (e) => {
   }
   render();
 });
+
+// Ejemplo precargado (medidas del troquel de ejemplo del proyecto), para
+// que la herramienta abra mostrando un resultado real y no un formulario
+// vacío. Se sobrescribe en cuanto el usuario captura sus propios datos.
+(function precargarEjemplo() {
+  $('#cliente').value = 'SALUTARE';
+  $('#articulo').value = 'CAJA DE EJEMPLO';
+  $('#codigo').value = 'FT-AF0001';
+  $('#realizado').value = 'PREPRENSA';
+  $('#largo').value = '271';
+  $('#ancho').value = '115';
+  $('#alto').value = '317.05';
+  calibreSelect.value = '14';
+  materialSelect.value = 'CAPLE CHILENO REV CAFE';
+  $('#pegue').value = 'fondo_automatico';
+  $('#laminaAncho').value = '786.45';
+  $('#laminaAlto').value = '317.05';
+  $('#ficha-form').requestSubmit();
+})();
