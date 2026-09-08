@@ -72,10 +72,13 @@ function grosorPiezaMm({ tipo, calibre, pegue }) {
 /**
  * Acomoda un rectángulo (f1 x f2, probando sus 2 orientaciones) en un
  * piso de dimA x dimB, y si sobra una tira después de la cuadrícula
- * principal, la rellena con MÁS rectángulos rotados 90° (mismo truco que
- * la tarima) — para no dejar espacio muerto ni dentro de una sola cama.
- * Regresa cols/filas de la cuadrícula principal, y extraCols/extraFilas
- * de los rotados en la tira sobrante (0 si no caben).
+ * principal, la rellena con MÁS rectángulos rotados 90°.
+ *
+ * SIMETRÍA (confirmado con el usuario): rotar está permitido, pero el
+ * grupo rotado solo se acepta si forma un BLOQUE COMPLETO a ras con la
+ * cuadrícula principal (misma profundidad). Si no alcanza a llegar,
+ * quedarían unas pocas cajas sueltas en la orilla — y esas se dañan.
+ * En ese caso se prefiere dejar el hueco vacío.
  */
 function piso2D(dimA, dimB, f1, f2) {
   function intento(wA, wB) {
@@ -83,12 +86,19 @@ function piso2D(dimA, dimB, f1, f2) {
     const filas = Math.floor(dimB / wB);
     const principal = cols * filas;
     const sobranteA = dimA - cols * wA;
+    const fondoPrincipal = filas * wB;
 
     let extraCols = 0, extraFilas = 0, extra = 0;
-    if (sobranteA >= wB) {
-      extraCols = Math.floor(sobranteA / wB);
-      extraFilas = Math.floor(dimB / wA);
-      extra = extraCols * extraFilas;
+    if (principal > 0 && sobranteA >= wB) {
+      const posiblesCols = Math.floor(sobranteA / wB);
+      const posiblesFilas = Math.floor(dimB / wA);
+      const fondoRotado = posiblesFilas * wA;
+      // Solo si el bloque rotado llega al mismo fondo que el principal.
+      if (posiblesCols > 0 && posiblesFilas > 0 && fondoRotado >= fondoPrincipal - MIN_UTIL_MM) {
+        extraCols = posiblesCols;
+        extraFilas = posiblesFilas;
+        extra = extraCols * extraFilas;
+      }
     }
 
     return { cols, filas, principal, extraCols, extraFilas, extra, total: principal + extra, wA, wB };
