@@ -9,11 +9,16 @@
  * probar las 3 y quedarse con la que da más piezas.
  *
  * Además, dentro de un mismo corrugado puede haber VARIAS camas, y no
- * todas tienen que usar el mismo eje: si la primera cama (la mejor
- * opción pura) deja un sobrante de espacio en su eje de apilado, ese
- * sobrante se vuelve a evaluar como un mini-corrugado (probando otra vez
- * los 3 ejes) para minimizar el espacio muerto — así una cama puede
- * quedar parada y la siguiente acostada, aprovechando el hueco.
+ * todas tienen que usar el mismo eje: si la primera cama deja altura
+ * libre, esa altura se vuelve a evaluar (probando otra vez los 3 ejes)
+ * para minimizar el espacio muerto — así una cama puede quedar acostada
+ * y la siguiente parada encima.
+ *
+ * REGLA IMPORTANTE: las camas SOLO se apilan una encima de otra, nunca
+ * una al lado de otra. Una cama de lado deja el producto sin apoyo (se
+ * puede dañar) y rompe la simetría que necesita el equipo de embalaje.
+ * Por eso el sobrante a lo largo y a lo ancho dentro de una cama se
+ * queda como espacio muerto a propósito.
  */
 
 /**
@@ -129,7 +134,7 @@ function evaluarEspacio({ largo, ancho, alto }, { largoDoblado, altoDoblado }, g
   return candidatos;
 }
 
-const MAX_PROFUNDIDAD = 3;
+const MAX_CAMAS = 4;
 const MIN_UTIL_MM = 0.5; // sobrantes más chicos que esto se ignoran
 
 /**
@@ -146,73 +151,35 @@ function dimensionesUsadas(cama, grosorPieza) {
 }
 
 /**
- * Corte tipo "guillotina": después de colocar una cama en la esquina de
- * un espacio, el hueco que queda se parte en 3 sub-espacios que NO se
- * traslapan y cubren todo el sobrante:
+ * Rellena la altura que queda encima de una cama, con más camas.
  *
- *   A) lo que sobra a lo LARGO (ancho y alto completos)
- *   B) lo que sobra a lo ANCHO (dentro del largo ya usado, alto completo)
- *   C) lo que sobra a lo ALTO  (dentro del largo y ancho ya usados)
+ * REGLA (confirmada con el usuario): las camas SOLO se apilan una sobre
+ * otra. Cada cama ocupa una franja horizontal del corrugado y la
+ * siguiente va ENCIMA — nunca a un lado. Una cama de lado deja el
+ * producto sin apoyo y se puede dañar, además de que el acomodo tiene
+ * que quedar simétrico para el equipo de embalaje.
  *
- * Esto es lo que faltaba: antes solo se reaprovechaba el sobrante del
- * eje de apilado, y el hueco de las OTRAS DOS caras se quedaba muerto —
- * que es justo donde caben, por ejemplo, cajas apiladas encima de una
- * cama acostada.
+ * Eso implica que el sobrante a lo largo y a lo ancho DENTRO de una cama
+ * se queda como espacio muerto a propósito: solo se reaprovecha el
+ * sobrante de ALTURA.
  */
-function dividirSobrante(dims, origen, usado) {
-  const subs = [];
+function empacarCamasEncima(corrugadoDims, doblada, grosorPieza, altoRestante, altoOcupado, camasRestantes) {
+  if (camasRestantes <= 0 || altoRestante <= MIN_UTIL_MM) return { camas: [], total: 0 };
 
-  const sobraLargo = dims.largo - usado.largo;
-  if (sobraLargo > MIN_UTIL_MM) {
-    subs.push({
-      dims: { largo: sobraLargo, ancho: dims.ancho, alto: dims.alto },
-      origen: { largo: origen.largo + usado.largo, ancho: origen.ancho, alto: origen.alto },
-    });
-  }
-
-  const sobraAncho = dims.ancho - usado.ancho;
-  if (sobraAncho > MIN_UTIL_MM && usado.largo > MIN_UTIL_MM) {
-    subs.push({
-      dims: { largo: usado.largo, ancho: sobraAncho, alto: dims.alto },
-      origen: { largo: origen.largo, ancho: origen.ancho + usado.ancho, alto: origen.alto },
-    });
-  }
-
-  const sobraAlto = dims.alto - usado.alto;
-  if (sobraAlto > MIN_UTIL_MM && usado.largo > MIN_UTIL_MM && usado.ancho > MIN_UTIL_MM) {
-    subs.push({
-      dims: { largo: usado.largo, ancho: usado.ancho, alto: sobraAlto },
-      origen: { largo: origen.largo, ancho: origen.ancho, alto: origen.alto + usado.alto },
-    });
-  }
-
-  return subs;
-}
-
-/**
- * Rellena un espacio de forma recursiva: prueba TODAS las orientaciones
- * de cama posibles y, para cada una, rellena los 3 sub-espacios que deja
- * (ver dividirSobrante). Se queda con la combinación que da más piezas.
- * Cada cama lleva su `origen` en mm para poder dibujarla después.
- */
-function empacarEspacio(dims, origen, doblada, grosorPieza, profundidad) {
-  if (profundidad <= 0) return { camas: [], total: 0 };
-
-  const opciones = evaluarEspacio(dims, doblada, grosorPieza);
+  const slot = { largo: corrugadoDims.largo, ancho: corrugadoDims.ancho, alto: altoRestante };
+  const opciones = evaluarEspacio(slot, doblada, grosorPieza);
   let mejor = { camas: [], total: 0 }; // siempre se puede dejar el hueco vacío
 
   for (const opcion of opciones) {
     const usado = dimensionesUsadas(opcion, grosorPieza);
-    let camas = [{ ...opcion, origen }];
-    let total = opcion.total;
-
-    for (const sub of dividirSobrante(dims, origen, usado)) {
-      const r = empacarEspacio(sub.dims, sub.origen, doblada, grosorPieza, profundidad - 1);
-      camas = camas.concat(r.camas);
-      total += r.total;
-    }
-
-    if (total > mejor.total) mejor = { camas, total };
+    const cama = { ...opcion, origen: { largo: 0, ancho: 0, alto: altoOcupado } };
+    const sub = empacarCamasEncima(
+      corrugadoDims, doblada, grosorPieza,
+      altoRestante - usado.alto, altoOcupado + usado.alto,
+      camasRestantes - 1,
+    );
+    const total = opcion.total + sub.total;
+    if (total > mejor.total) mejor = { camas: [cama, ...sub.camas], total };
   }
 
   return mejor;
@@ -221,22 +188,22 @@ function empacarEspacio(dims, origen, doblada, grosorPieza, profundidad) {
 /**
  * Arma la MEJOR estrategia completa para un corrugado, forzando cuál es
  * la PRIMERA cama (para poder comparar las 3 orientaciones de arranque
- * en la UI) y rellenando después todo el sobrante de forma recursiva.
+ * en la UI) y apilando encima las camas que quepan en la altura restante.
  */
 function armarEstrategia(corrugadoDims, primeraCama, doblada, grosorPieza) {
-  const origen = { largo: 0, ancho: 0, alto: 0 };
   const usado = dimensionesUsadas(primeraCama, grosorPieza);
+  const cama = { ...primeraCama, origen: { largo: 0, ancho: 0, alto: 0 } };
 
-  let camas = [{ ...primeraCama, origen }];
-  let total = primeraCama.total;
+  const encima = empacarCamasEncima(
+    corrugadoDims, doblada, grosorPieza,
+    corrugadoDims.alto - usado.alto, usado.alto,
+    MAX_CAMAS - 1,
+  );
 
-  for (const sub of dividirSobrante(corrugadoDims, origen, usado)) {
-    const r = empacarEspacio(sub.dims, sub.origen, doblada, grosorPieza, MAX_PROFUNDIDAD);
-    camas = camas.concat(r.camas);
-    total += r.total;
-  }
-
-  return { camas, total };
+  return {
+    camas: [cama, ...encima.camas],
+    total: primeraCama.total + encima.total,
+  };
 }
 
 /**
