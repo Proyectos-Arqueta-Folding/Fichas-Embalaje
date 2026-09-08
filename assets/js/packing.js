@@ -22,21 +22,24 @@
  */
 
 /**
- * Medida DOBLADA (plana) de la caja, a partir de sus dimensiones armadas
- * (largo/ancho/alto). Verificada contra el ejemplo de troquel del usuario
- * (largo=271, ancho=115, alto=317.05, fondo automático -> doblada
- * 386 x 237.75 mm, que es justo lo que da esta fórmula):
+ * Medida DOBLADA (plana) de la caja, a partir de las medidas del TROQUEL
+ * (la lámina extendida). Verificada contra el ejemplo del usuario
+ * (panel largo=271, panel ancho=115, lámina 786.45 x 317.05, fondo
+ * automático -> doblada 386 x 237.75 mm):
  *
- *  - Largo doblado = largo + ancho (una cara del largo + una del ancho,
- *    porque el pegue sale de una ceja y el resto se pliega sobre sí
- *    mismo). Es geometría del plegado de los paneles laterales, no
- *    depende del tipo de pegue.
- *  - Alto doblado = alto x factor, donde factor quita la parte del fondo
- *    que no aporta a la altura doblada:
- *      - lineal: 1.0 (altura completa, el pegue es una costura de lado)
- *      - fondo automático: 0.75 (se quita la parte del fondo crash-lock)
- *      - charola: 1.0 (la charola va extendida, no hay reducción por
- *        plegado de fondo)
+ *  - Largo doblado = panel largo + panel ancho (una cara del largo + una
+ *    del ancho, porque el pegue sale de una ceja y el resto se pliega
+ *    sobre sí mismo). Es geometría del plegado de los paneles laterales,
+ *    no depende del tipo de pegue.
+ *  - Alto doblado = ALTO TOTAL DE LA LÁMINA x factor. Ojo: se usa el
+ *    alto de la lámina, NO el alto interno de la caja armada, porque en
+ *    la caja doblada las solapas siguen sueltas en el plano y ocupan
+ *    espacio. El factor solo descuenta el fondo cuando aplica:
+ *      - lineal: 1.0 (lámina completa; el pegue es una costura de lado
+ *        y las solapas de arriba y abajo quedan extendidas)
+ *      - fondo automático: 0.75 (se quita la parte del fondo crash-lock,
+ *        que va pegada y se pliega dentro del cuerpo)
+ *      - charola: 1.0 (va extendida, no hay reducción por plegado)
  *      - 4 esquinas: 1.0 como placeholder — PENDIENTE de confirmar con
  *        el usuario, se usa el mismo valor que lineal mientras tanto.
  */
@@ -47,12 +50,12 @@ const FACTOR_ALTO_DOBLADO = {
   cuatro_esquinas: 1.0, // pendiente de confirmar
 };
 
-function medidaDoblada({ largo, ancho, alto, pegue }) {
+function medidaDoblada({ largo, ancho, laminaAlto, pegue }) {
   const factor = FACTOR_ALTO_DOBLADO[pegue];
-  if (factor == null) return null;
+  if (factor == null || !laminaAlto) return null;
   return {
     largoDoblado: largo + ancho,
-    altoDoblado: alto * factor,
+    altoDoblado: laminaAlto * factor,
   };
 }
 
@@ -242,9 +245,9 @@ function evaluarCorrugado(corrugado, doblada, grosorPieza) {
  * de piezas, junto con TODAS las estrategias evaluadas por corrugado (para
  * que la UI permita cambiar de corrugado/estrategia manualmente).
  */
-function calcularMejorEmpaque({ largo, ancho, alto, tipoCarton, calibre, pegue }) {
-  const doblada = medidaDoblada({ largo, ancho, alto, pegue });
-  if (!doblada) return { error: 'Tipo de pegue inválido.' };
+function calcularMejorEmpaque({ largo, ancho, laminaAlto, tipoCarton, calibre, pegue }) {
+  const doblada = medidaDoblada({ largo, ancho, laminaAlto, pegue });
+  if (!doblada) return { error: 'Falta el alto total de la lámina o el tipo de pegue es inválido.' };
 
   const grosorPieza = grosorPiezaMm({ tipo: tipoCarton, calibre, pegue });
   if (!grosorPieza) return { error: 'Calibre o tipo de pegue inválido.' };

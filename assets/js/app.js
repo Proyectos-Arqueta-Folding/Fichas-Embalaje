@@ -360,7 +360,6 @@ $('#ficha-form').addEventListener('submit', (e) => {
     realizado: $('#realizado').value.trim(),
     largo: Number($('#largo').value),
     ancho: Number($('#ancho').value),
-    alto: Number($('#alto').value),
     tipoCarton: tipoCartonSelect.value,
     calibre: tipoCartonSelect.value === 'solido' ? Number(calibreSelect.value) : calibreSelect.value,
     material: materialSelect.value,
@@ -416,7 +415,6 @@ $('#btn-nueva').addEventListener('click', () => {
   $('#realizado').value = 'PREPRENSA';
   $('#largo').value = '271';
   $('#ancho').value = '115';
-  $('#alto').value = '317.05';
   calibreSelect.value = '14';
   materialSelect.value = 'CAPLE CHILENO REV CAFE';
   $('#pegue').value = 'fondo_automatico';

@@ -55,20 +55,30 @@
           </div>
         </div>
 
-        <h2 style="margin-top:22px;">Caja de producto</h2>
-        <p class="af-card-hint">Dimensiones internas en milímetros.</p>
-        <div class="af-row3">
+        <h2 style="margin-top:22px;">Medidas del troquel (caja extendida)</h2>
+        <p class="af-card-hint">Todo se calcula desde la lámina extendida, en milímetros. Sube la foto del troquel para tenerla a la mano.</p>
+        <div class="af-field">
+          <input type="file" id="dieline-img" accept="image/*">
+        </div>
+        <div id="dieline-preview"></div>
+        <div class="af-row2">
           <div class="af-field">
-            <label for="largo">Largo (mm)</label>
+            <label for="largo">Panel largo (mm)</label>
             <input type="number" id="largo" min="1" step="any" required>
           </div>
           <div class="af-field">
-            <label for="ancho">Ancho (mm)</label>
+            <label for="ancho">Panel ancho (mm)</label>
             <input type="number" id="ancho" min="1" step="any" required>
           </div>
+        </div>
+        <div class="af-row2">
           <div class="af-field">
-            <label for="alto">Alto (mm)</label>
-            <input type="number" id="alto" min="1" step="any" required>
+            <label for="laminaAncho">Ancho TOTAL lámina (mm)</label>
+            <input type="number" id="laminaAncho" min="1" step="any" required>
+          </div>
+          <div class="af-field">
+            <label for="laminaAlto">Alto TOTAL lámina (mm)</label>
+            <input type="number" id="laminaAlto" min="1" step="any" required>
           </div>
         </div>
 
@@ -100,25 +110,8 @@
           </select>
         </div>
 
-        <h2 style="margin-top:22px;">Referencia del troquel (opcional)</h2>
-        <p class="af-card-hint">Sube la foto y captura el ancho/alto TOTAL de la lámina extendida (con pestañas) — se usa para estimar el peso. Sin esto, el peso no se calcula.</p>
-        <div class="af-field">
-          <input type="file" id="dieline-img" accept="image/*">
-        </div>
-        <div id="dieline-preview"></div>
-        <div class="af-row2">
-          <div class="af-field">
-            <label for="laminaAncho">Ancho total lámina (mm)</label>
-            <input type="number" id="laminaAncho" min="0" step="any">
-          </div>
-          <div class="af-field">
-            <label for="laminaAlto">Alto total lámina (mm)</label>
-            <input type="number" id="laminaAlto" min="0" step="any">
-          </div>
-        </div>
-
         <div class="af-note">
-          <b>Modelo de cálculo (v2):</b> la caja se maneja doblada, no armada en 3D. Largo doblado = largo + ancho; alto doblado = alto × factor según el pegue (lineal y charola = 1.0, fondo automático = 0.75, 4 esquinas = 1.0 provisional, pendiente de confirmar). Las piezas se apilan hasta llenar el alto del corrugado formando una "posteta", y las postetas se acomodan en el piso del corrugado.
+          <b>Cómo se calcula:</b> la caja va doblada, no armada. El <b>largo doblado = panel largo + panel ancho</b>. El <b>alto doblado sale del alto TOTAL de la lámina</b> (no del alto interno de la caja), porque las solapas siguen sueltas en el plano y ocupan espacio: lineal y charola usan la lámina completa, y fondo automático le quita el fondo (× 0.75). 4 esquinas está provisional en × 1.0, pendiente de confirmar. Las piezas se apilan hasta llenar el corrugado formando una "posteta", y las postetas se acomodan por camas.
         </div>
 
         <div class="af-form-actions">
