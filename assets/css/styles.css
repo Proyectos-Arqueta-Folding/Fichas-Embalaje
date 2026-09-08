@@ -285,6 +285,9 @@ html, body {
 .stat .lbl { font-size: 11px; color: var(--af-ink-soft); text-transform: uppercase; letter-spacing: .4px; }
 
 .af-actions { display: flex; gap: 10px; margin-top: 18px; }
+.af-form-actions { display: flex; gap: 10px; margin-top: 18px; }
+.af-form-actions .af-btn-primary { flex: 1; }
+.af-form-actions .af-btn-ghost { white-space: nowrap; }
 
 /* ---------- Ficha imprimible (AF-FR-PP-02) ---------- */
 #print-ficha { display: none; }

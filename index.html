@@ -20,7 +20,7 @@
       <div class="subtitle">Arqueta Folding</div>
     </div>
   </div>
-  <div class="af-header-tag">Ejemplo precargado — cambia los datos y recalcula</div>
+  <div class="af-header-tag" id="af-header-tag">Ejemplo precargado — cambia los datos y recalcula</div>
 </header>
 
 <main class="af-shell">
@@ -121,7 +121,10 @@
           <b>Modelo de cálculo (v2):</b> la caja se maneja doblada, no armada en 3D. Largo doblado = largo + ancho; alto doblado = alto × factor según el pegue (lineal y charola = 1.0, fondo automático = 0.75, 4 esquinas = 1.0 provisional, pendiente de confirmar). Las piezas se apilan hasta llenar el alto del corrugado formando una "posteta", y las postetas se acomodan en el piso del corrugado.
         </div>
 
-        <button type="submit" class="af-btn af-btn-primary af-btn-full" style="margin-top:18px;">Calcular mejor empaque</button>
+        <div class="af-form-actions">
+          <button type="submit" class="af-btn af-btn-primary">Calcular mejor empaque</button>
+          <button type="button" class="af-btn af-btn-ghost" id="btn-nueva">Nueva ficha</button>
+        </div>
       </form>
     </div>
 

@@ -334,6 +334,32 @@ $('#ficha-form').addEventListener('submit', (e) => {
   render();
 });
 
+const PREVIEW_VACIO = `
+  <div class="af-card">
+    <div class="af-empty-state">
+      <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="#5090c0" stroke-width="1.4">
+        <path d="M3 7l9-4 9 4-9 4-9-4z"/>
+        <path d="M3 7v10l9 4 9-4V7"/>
+        <path d="M12 11v10"/>
+      </svg>
+      <div>Completa el formulario y presiona <b>Calcular</b> para ver la ficha de embalaje.</div>
+    </div>
+  </div>
+`;
+
+// "Nueva ficha": deja todo en blanco para capturar otra caja desde cero.
+$('#btn-nueva').addEventListener('click', () => {
+  state = null;
+  $('#ficha-form').reset();
+  poblarCalibres();      // el reset regresa el tipo de cartón a sólido
+  $('#dieline-preview').innerHTML = '';
+  $('#print-ficha').innerHTML = '';
+  $('#preview-container').innerHTML = PREVIEW_VACIO;
+  $('#af-header-tag').textContent = 'Ficha nueva';
+  $('#cliente').focus();
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+});
+
 // Ejemplo precargado (medidas del troquel de ejemplo del proyecto), para
 // que la herramienta abra mostrando un resultado real y no un formulario
 // vacío. Se sobrescribe en cuanto el usuario captura sus propios datos.
