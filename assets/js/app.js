@@ -160,7 +160,7 @@ function render({ scrollToScene = false } = {}) {
 
   const camasFilas = estrategia.camas.map((c, i) => `
     <tr>
-      <td class="label"><span class="dot" style="background:${i === 0 ? '#0060b0' : '#5090c0'}"></span>Cama ${i + 1} — ${c.orientacionLabel}</td>
+      <td class="label"><span class="dot" style="background:${CAMA_COLOR_HEX[i % CAMA_COLOR_HEX.length]}"></span>Cama ${i + 1} — ${c.orientacionLabel}</td>
       <td class="value">
         ${c.cols} × ${c.filas} postetas × ${c.piezasPorPosteta} pzs/posteta
         ${c.extra > 0 ? `<br><span style="color:var(--af-ink-soft); font-size:12px;">+ ${c.extraCols} × ${c.extraFilas} rotadas 90° (tira sobrante) × ${c.piezasPorPosteta} pzs/posteta</span>` : ''}

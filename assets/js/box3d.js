@@ -90,7 +90,12 @@ const SCENE_PX = 260;
 const CAMA_COLORS = [
   { top: '#eaf3fb', front: '#0060b0', side: '#0b2a4a' },
   { top: '#dcecf9', front: '#5090c0', side: '#2a5a86' },
+  { top: '#e6f2ec', front: '#1f9d55', side: '#14603a' },
+  { top: '#fdf0e2', front: '#c88a1a', side: '#8a5f10' },
 ];
+
+// Mismos colores (cara frontal) para las etiquetas de la UI.
+const CAMA_COLOR_HEX = CAMA_COLORS.map((c) => c.front);
 
 // Líneas finas repetidas en una cara "de canto" (lateral al eje de
 // apilado), para sugerir que la posteta es un bloque de piezas apiladas
@@ -141,10 +146,12 @@ const EJE_A_MUNDO = { largo: 'x', ancho: 'z', alto: 'y' };
 function horizCoord(centerDesdeBorde, dimTotal, scale) {
   return centerDesdeBorde * scale - (dimTotal * scale) / 2;
 }
-// Igual, pero para el eje vertical (alto->Y), que va invertido porque
-// `anchored()` niega la Y (CSS crece hacia abajo).
+// Igual, pero para el eje vertical (alto->Y). `anchored()` ya niega la Y
+// (CSS crece hacia abajo), así que aquí se regresa "altura sobre el
+// centro": alto=0 es el PISO del corrugado y queda abajo en pantalla, y
+// las camas de más arriba se dibujan más arriba.
 function vertCoord(centerDesdeBorde, dimTotal, scale) {
-  return (dimTotal * scale) / 2 - centerDesdeBorde * scale;
+  return centerDesdeBorde * scale - (dimTotal * scale) / 2;
 }
 
 /**
@@ -159,14 +166,13 @@ function renderProductScene(mountEl, { corrugado, estrategia, grosorPiezaMm }) {
   const scale = SCENE_PX / Math.max(largo, ancho, alto);
   const contW = largo * scale, contH = alto * scale, contD = ancho * scale;
 
-  const offsets = { largo: 0, ancho: 0, alto: 0 };
   let units = '';
 
   function dibujarCelda(cama, color, offsetA, sizeA, sizeB, i, j, stackCenter, stackLen) {
     const centers = {};
     centers[cama.ejeApilado] = stackCenter;
     centers[cama.ejeA] = offsetA + (i + 0.5) * sizeA;
-    centers[cama.ejeB] = offsets[cama.ejeB] + (j + 0.5) * sizeB;
+    centers[cama.ejeB] = cama.origen[cama.ejeB] + (j + 0.5) * sizeB;
 
     const sizes = {};
     sizes[cama.ejeApilado] = stackLen;
@@ -191,27 +197,25 @@ function renderProductScene(mountEl, { corrugado, estrategia, grosorPiezaMm }) {
   estrategia.camas.forEach((cama, camaIndex) => {
     const color = CAMA_COLORS[camaIndex % CAMA_COLORS.length];
     const stackLen = cama.apiladas * grosorPiezaMm;
-    const stackCenter = offsets[cama.ejeApilado] + stackLen / 2;
+    const stackCenter = cama.origen[cama.ejeApilado] + stackLen / 2;
 
     // Cuadrícula principal.
     for (let i = 0; i < cama.cols; i++) {
       for (let j = 0; j < cama.filas; j++) {
-        units += dibujarCelda(cama, color, offsets[cama.ejeA], cama.dimA, cama.dimB, i, j, stackCenter, stackLen);
+        units += dibujarCelda(cama, color, cama.origen[cama.ejeA], cama.dimA, cama.dimB, i, j, stackCenter, stackLen);
       }
     }
 
     // Tira sobrante rellena con postetas ROTADAS 90° (mismo truco que la
     // tarima) — mismo eje de apilado y misma cama, distinta orientación.
     if (cama.extra > 0) {
-      const offsetExtraA = offsets[cama.ejeA] + cama.cols * cama.dimA;
+      const offsetExtraA = cama.origen[cama.ejeA] + cama.cols * cama.dimA;
       for (let i = 0; i < cama.extraCols; i++) {
         for (let j = 0; j < cama.extraFilas; j++) {
           units += dibujarCelda(cama, color, offsetExtraA, cama.dimB, cama.dimA, i, j, stackCenter, stackLen);
         }
       }
     }
-
-    offsets[cama.ejeApilado] += stackLen;
   });
 
   const container = anchored(0, 0, 0, cuboidHTML({
