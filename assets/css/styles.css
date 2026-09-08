@@ -166,6 +166,42 @@ html, body {
   font-size: 12.5px;
 }
 
+/* ---------- Lectura del troquel (OCR) ---------- */
+.ocr-estado {
+  border-radius: 10px;
+  padding: 10px 14px;
+  font-size: 12.5px;
+  line-height: 1.5;
+  margin-top: 8px;
+  border: 1px solid transparent;
+}
+.ocr-trabajando { background: var(--af-blue-pale); border-color: var(--af-blue-light); color: var(--af-navy); }
+.ocr-listo { background: #e6f2ec; border-color: #a8d5bf; color: #14603a; }
+.ocr-aviso { background: #fff7e8; border-color: #f0d69a; color: #7a5a06; }
+.ocr-nota { margin-top: 6px; }
+.ocr-chip {
+  display: inline-block;
+  background: var(--af-white);
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  padding: 1px 9px;
+  margin: 2px 3px 0 0;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.ocr-spinner {
+  display: inline-block;
+  width: 11px; height: 11px;
+  border: 2px solid var(--af-blue-light);
+  border-top-color: var(--af-blue);
+  border-radius: 50%;
+  animation: ocr-gira .7s linear infinite;
+  vertical-align: -1px;
+  margin-right: 4px;
+}
+@keyframes ocr-gira { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .ocr-spinner { animation: none; } }
+
 /* ---------- Assumption note ---------- */
 .af-note {
   background: #fff7e8;

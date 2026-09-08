@@ -60,25 +60,27 @@
         <div class="af-field">
           <input type="file" id="dieline-img" accept="image/*">
         </div>
+        <div id="ocr-estado"></div>
         <div id="dieline-preview"></div>
+        <datalist id="medidas-detectadas"></datalist>
         <div class="af-row2">
           <div class="af-field">
             <label for="largo">Panel largo (mm)</label>
-            <input type="number" id="largo" min="1" step="any" required>
+            <input type="number" id="largo" min="1" step="any" list="medidas-detectadas" required>
           </div>
           <div class="af-field">
             <label for="ancho">Panel ancho (mm)</label>
-            <input type="number" id="ancho" min="1" step="any" required>
+            <input type="number" id="ancho" min="1" step="any" list="medidas-detectadas" required>
           </div>
         </div>
         <div class="af-row2">
           <div class="af-field">
             <label for="laminaAncho">Ancho TOTAL lámina (mm)</label>
-            <input type="number" id="laminaAncho" min="1" step="any" required>
+            <input type="number" id="laminaAncho" min="1" step="any" list="medidas-detectadas" required>
           </div>
           <div class="af-field">
             <label for="laminaAlto">Alto TOTAL lámina (mm)</label>
-            <input type="number" id="laminaAlto" min="1" step="any" required>
+            <input type="number" id="laminaAlto" min="1" step="any" list="medidas-detectadas" required>
           </div>
         </div>
 
@@ -141,6 +143,7 @@
 <script src="assets/js/data.js"></script>
 <script src="assets/js/packing.js"></script>
 <script src="assets/js/box3d.js"></script>
+<script src="assets/js/ocr.js"></script>
 <script src="assets/js/fichaPrint.js"></script>
 <script src="assets/js/app.js"></script>
 </body>

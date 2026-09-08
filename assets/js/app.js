@@ -1,11 +1,64 @@
 const $ = (sel) => document.querySelector(sel);
 
-$('#dieline-img').addEventListener('change', (e) => {
+function estadoOcr(html, clase = '') {
+  $('#ocr-estado').innerHTML = html ? `<div class="ocr-estado ${clase}">${html}</div>` : '';
+}
+
+$('#dieline-img').addEventListener('change', async (e) => {
   const file = e.target.files[0];
   const box = $('#dieline-preview');
-  if (!file) { box.innerHTML = ''; return; }
+  if (!file) {
+    box.innerHTML = '';
+    estadoOcr('');
+    return;
+  }
+
   const url = URL.createObjectURL(file);
   box.innerHTML = `<img src="${url}" style="max-width:100%;border-radius:8px;border:1px solid var(--af-border);margin-top:6px;">`;
+
+  try {
+    estadoOcr('<span class="ocr-spinner"></span> Preparando la imagen…', 'ocr-trabajando');
+    const { numeros, sugerencia } = await leerMedidasDeTroquel(file, (txt) => {
+      estadoOcr(`<span class="ocr-spinner"></span> ${txt}`, 'ocr-trabajando');
+    });
+
+    // Todos los números detectados quedan disponibles en cada campo,
+    // para corregir de un clic si alguno cayó en el lugar equivocado.
+    $('#medidas-detectadas').innerHTML = numeros
+      .map((n) => `<option value="${n.valor}"></option>`).join('');
+
+    if (!sugerencia) {
+      estadoOcr(
+        `No pude leer medidas claras en la imagen (detecté ${numeros.length}). Captúralas a mano abajo.`,
+        'ocr-aviso',
+      );
+      return;
+    }
+
+    if (sugerencia.laminaAncho) $('#laminaAncho').value = sugerencia.laminaAncho;
+    if (sugerencia.laminaAlto) $('#laminaAlto').value = sugerencia.laminaAlto;
+    if (sugerencia.largo) $('#largo').value = sugerencia.largo;
+    if (sugerencia.ancho) $('#ancho').value = sugerencia.ancho;
+
+    const faltantes = ['largo', 'ancho', 'laminaAncho', 'laminaAlto'].filter((k) => !$(`#${k}`).value);
+    const chips = sugerencia.todos.map((v) => `<span class="ocr-chip">${v}</span>`).join('');
+
+    estadoOcr(`
+      <b>Medidas detectadas:</b> ${chips}
+      <div class="ocr-nota">
+        ${faltantes.length
+          ? `Faltó llenar ${faltantes.length} campo(s); complétalos a mano.`
+          : 'Ya llené los 4 campos.'}
+        <b>Verifica que cada número esté en el campo correcto</b> — si alguno quedó mal,
+        cada campo te ofrece la lista completa de números detectados.
+      </div>
+    `, 'ocr-listo');
+  } catch (err) {
+    estadoOcr(
+      `No se pudo leer la imagen automáticamente (${err.message}) Captura las medidas a mano abajo.`,
+      'ocr-aviso',
+    );
+  }
 });
 
 const tipoCartonSelect = $('#tipoCarton');
@@ -398,6 +451,8 @@ $('#btn-nueva').addEventListener('click', () => {
   $('#ficha-form').reset();
   poblarCalibres();      // el reset regresa el tipo de cartón a sólido
   $('#dieline-preview').innerHTML = '';
+  $('#medidas-detectadas').innerHTML = '';
+  estadoOcr('');
   $('#print-ficha').innerHTML = '';
   $('#preview-container').innerHTML = PREVIEW_VACIO;
   $('#af-header-tag').textContent = 'Ficha nueva';
