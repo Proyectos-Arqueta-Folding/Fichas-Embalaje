@@ -92,14 +92,49 @@ const CAMA_COLORS = [
   { top: '#dcecf9', front: '#5090c0', side: '#2a5a86' },
 ];
 
-// Líneas finas repetidas en la cara frontal, para sugerir que la posteta
-// es un bloque de piezas apiladas (como el ícono "postetas" de las fichas
-// reales), no una caja sólida.
-function postetaStripes(colorBase, lineas) {
+// Líneas finas repetidas en una cara "de canto" (lateral al eje de
+// apilado), para sugerir que la posteta es un bloque de piezas apiladas
+// (como el ícono "postetas" de las fichas reales), no una caja sólida.
+// dir = 'to bottom' o 'to right', según qué dimensión propia de esa cara
+// coincide con el eje real de apilado (ver postetaCuboidHTML).
+function postetaStripes(colorBase, lineas, dir = 'to bottom') {
   const n = Math.max(4, Math.min(14, lineas));
   const step = 100 / n;
-  return `repeating-linear-gradient(to bottom, ${colorBase} 0px, ${colorBase} ${step * 0.72}%, rgba(0,0,0,0.16) ${step * 0.72}%, rgba(0,0,0,0.16) ${step}%)`;
+  return `repeating-linear-gradient(${dir}, ${colorBase} 0px, ${colorBase} ${step * 0.72}%, rgba(0,0,0,0.16) ${step * 0.72}%, rgba(0,0,0,0.16) ${step}%)`;
 }
+
+/**
+ * Cuboide de una posteta consciente de su eje de apilado REAL en el
+ * mundo (stackAxisWorld: 'x'=largo, 'y'=alto, 'z'=ancho) — las 2 caras
+ * perpendiculares a ese eje (las "tapas" del bloque de hojas) se pintan
+ * planas (colorTapa); las otras 4 (de canto) llevan las rayitas que
+ * simulan las hojas apiladas, en la dirección que corresponda a ese
+ * mismo eje. Así, si la posteta está "parada" se ve la tapa blanca
+ * arriba/abajo; si está "acostada" la tapa blanca queda de lado.
+ */
+function postetaCuboidHTML({ w, h, d, stackAxisWorld, colorTapa, colorCanto, piezas, border = '' }) {
+  const halfW = w / 2, halfH = h / 2, halfD = d / 2;
+
+  const frontBackEsTapa = stackAxisWorld === 'z';
+  const rightLeftEsTapa = stackAxisWorld === 'x';
+  const topBottomEsTapa = stackAxisWorld === 'y';
+
+  const frontBackColor = frontBackEsTapa ? colorTapa : postetaStripes(colorCanto, piezas, stackAxisWorld === 'x' ? 'to right' : 'to bottom');
+  const rightLeftColor = rightLeftEsTapa ? colorTapa : postetaStripes(colorCanto, piezas, stackAxisWorld === 'z' ? 'to right' : 'to bottom');
+  const topBottomColor = topBottomEsTapa ? colorTapa : postetaStripes(colorCanto, piezas, stackAxisWorld === 'x' ? 'to right' : 'to bottom');
+
+  return `
+    ${face('f-front', w, h, `translateZ(${halfD}px)`, frontBackColor, border)}
+    ${face('f-back', w, h, `translateZ(${-halfD}px) rotateY(180deg)`, frontBackColor, border)}
+    ${face('f-right', d, h, `translateX(${halfW}px) rotateY(90deg)`, rightLeftColor, border)}
+    ${face('f-left', d, h, `translateX(${-halfW}px) rotateY(-90deg)`, rightLeftColor, border)}
+    ${face('f-top', w, d, `translateY(${-halfH}px) rotateX(90deg)`, topBottomColor, border)}
+    ${face('f-bottom', w, d, `translateY(${halfH}px) rotateX(-90deg)`, topBottomColor, border)}
+  `;
+}
+
+// largo->X, ancho->Z, alto->Y (misma convención que el resto del archivo).
+const EJE_A_MUNDO = { largo: 'x', ancho: 'z', alto: 'y' };
 
 // Convierte una coordenada "desde el borde/piso" (mm) de un eje horizontal
 // (largo->X, ancho->Z) a la coordenada centrada que usa `anchored()`.
@@ -143,11 +178,12 @@ function renderProductScene(mountEl, { corrugado, estrategia, grosorPiezaMm }) {
     const cy = vertCoord(centers.alto, alto, scale);
     const boxW = sizes.largo * scale, boxD = sizes.ancho * scale, boxH = sizes.alto * scale;
 
-    return anchored(cx, cy, cz, cuboidHTML({
+    return anchored(cx, cy, cz, postetaCuboidHTML({
       w: boxW * 0.92, h: boxH * 0.92, d: boxD * 0.92,
-      colorTop: color.top,
-      colorFront: postetaStripes(color.front, cama.piezasPorPosteta / 3),
-      colorSide: postetaStripes(color.side, cama.piezasPorPosteta / 3),
+      stackAxisWorld: EJE_A_MUNDO[cama.ejeApilado],
+      colorTapa: color.top,
+      colorCanto: color.front,
+      piezas: cama.piezasPorPosteta / 3,
       border: 'box-shadow: inset 0 0 0 1px rgba(255,255,255,0.3);',
     }));
   }

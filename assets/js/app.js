@@ -95,11 +95,11 @@ function renderListaCorrugados() {
     return `
       <button type="button" class="corr-row ${activo ? 'corr-row-active' : ''}" data-corr="${p.corrugado.id}">
         <span class="corr-row-id">
-          ${p.corrugado.id}${p.corrugado.id === mejorId ? ' <span class="badge">Recomendado</span>' : ''}
+          ${p.corrugado.id}${p.corrugado.id === mejorId ? ' <span class="badge">Menos tarimas</span>' : ''}
         </span>
         <span class="corr-row-dims">${p.corrugado.largo} × ${p.corrugado.ancho} × ${p.corrugado.alto} mm</span>
-        <span class="corr-row-detail">${estrategiaLabel(mejorEstrategia)}</span>
-        <span class="corr-row-total">${mejorEstrategia.total} pzs</span>
+        <span class="corr-row-detail">${estrategiaLabel(mejorEstrategia)} (${mejorEstrategia.total} pzs/corrugado)</span>
+        <span class="corr-row-total">${p.piezasPorTarima} pzs/tarima</span>
       </button>
     `;
   }).join('');
@@ -107,7 +107,7 @@ function renderListaCorrugados() {
   return `
     <div class="af-card">
       <h2>Todas las opciones de corrugado</h2>
-      <p class="af-card-hint">Piezas totales con la mejor estrategia de cada corrugado. Haz clic en una para verla en 3D.</p>
+      <p class="af-card-hint">Ordenado por piezas por TARIMA (menos tarimas para el mismo pedido), no solo por corrugado. Haz clic en una para verla en 3D.</p>
       <div class="corr-list">${filas}</div>
     </div>
   `;

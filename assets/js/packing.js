@@ -216,7 +216,16 @@ function calcularMejorEmpaque({ largo, ancho, alto, tipoCarton, calibre, pegue }
     return { error: 'La caja doblada no cabe en ningún corrugado del catálogo con este calibre/pegue.' };
   }
 
-  porCorrugado.sort((a, b) => b.opciones[0].total - a.opciones[0].total);
+  // El objetivo real es mandar las MENOS tarimas posibles, no solo llenar
+  // mejor un corrugado individual — un corrugado con menos piezas puede
+  // igual acomodarse mucho mejor en la tarima y dar más piezas totales
+  // por tarima. Por eso se ordena por piezas-por-tarima (estrategia x
+  // estiba), no por piezas-por-corrugado solo.
+  porCorrugado.forEach((r) => {
+    const estiba = calcularEstibaEnTarima(r.corrugado);
+    r.piezasPorTarima = r.opciones[0].total * estiba.total;
+  });
+  porCorrugado.sort((a, b) => b.piezasPorTarima - a.piezasPorTarima);
   const mejor = porCorrugado[0];
 
   return {
