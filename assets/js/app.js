@@ -87,27 +87,67 @@ function currentSelection() {
 
 function renderListaCorrugados() {
   const { porCorrugado } = state.resultado;
-  const mejorId = porCorrugado[0].corrugado.id;
 
-  const filas = porCorrugado.map((p) => {
+  // Los dos criterios no siempre coinciden: un corrugado puede llevar
+  // más cajas él solo y aun así rendir menos por tarima (o al revés).
+  // Se marcan los dos para poder comparar.
+  const idMenosTarimas = [...porCorrugado].sort((a, b) => b.piezasPorTarima - a.piezasPorTarima)[0].corrugado.id;
+  const idMasPorCorrugado = [...porCorrugado].sort((a, b) => b.opciones[0].total - a.opciones[0].total)[0].corrugado.id;
+  const coinciden = idMenosTarimas === idMasPorCorrugado;
+
+  const ordenarPor = state.ordenarPor || 'tarima';
+  const ordenados = [...porCorrugado].sort((a, b) => (
+    ordenarPor === 'corrugado'
+      ? b.opciones[0].total - a.opciones[0].total
+      : b.piezasPorTarima - a.piezasPorTarima
+  ));
+
+  const filas = ordenados.map((p) => {
     const mejorEstrategia = p.opciones[0];
     const activo = p.corrugado.id === state.corrugadoId;
+    const ganaTarima = p.corrugado.id === idMenosTarimas;
+    const ganaCorrugado = p.corrugado.id === idMasPorCorrugado;
+
+    const badges = [
+      ganaTarima ? '<span class="badge badge-tarima">Menos tarimas</span>' : '',
+      ganaCorrugado ? '<span class="badge badge-corrugado">Más por corrugado</span>' : '',
+    ].join(' ');
+
     return `
       <button type="button" class="corr-row ${activo ? 'corr-row-active' : ''}" data-corr="${p.corrugado.id}">
-        <span class="corr-row-id">
-          ${p.corrugado.id}${p.corrugado.id === mejorId ? ' <span class="badge">Menos tarimas</span>' : ''}
-        </span>
+        <span class="corr-row-id">${p.corrugado.id} ${badges}</span>
         <span class="corr-row-dims">${p.corrugado.largo} × ${p.corrugado.ancho} × ${p.corrugado.alto} mm</span>
-        <span class="corr-row-detail">${estrategiaLabel(mejorEstrategia)} (${mejorEstrategia.total} pzs/corrugado)</span>
-        <span class="corr-row-total">${p.piezasPorTarima} pzs/tarima</span>
+        <span class="corr-row-detail">${estrategiaLabel(mejorEstrategia)}</span>
+        <span class="corr-metric ${ganaCorrugado ? 'corr-metric-gana' : ''}">
+          <span class="corr-metric-num">${mejorEstrategia.total}</span>
+          <span class="corr-metric-lbl">pzs / corrugado</span>
+        </span>
+        <span class="corr-metric ${ganaTarima ? 'corr-metric-gana' : ''}">
+          <span class="corr-metric-num">${p.piezasPorTarima}</span>
+          <span class="corr-metric-lbl">pzs / tarima</span>
+        </span>
       </button>
     `;
   }).join('');
 
   return `
     <div class="af-card">
-      <h2>Todas las opciones de corrugado</h2>
-      <p class="af-card-hint">Ordenado por piezas por TARIMA (menos tarimas para el mismo pedido), no solo por corrugado. Haz clic en una para verla en 3D.</p>
+      <div class="corr-list-head">
+        <div>
+          <h2>Todas las opciones de corrugado</h2>
+          <p class="af-card-hint">
+            ${coinciden
+              ? 'En este caso el mismo corrugado gana en los dos criterios.'
+              : `Los dos criterios <b>no coinciden</b>: ${idMasPorCorrugado} lleva más cajas por corrugado, pero ${idMenosTarimas} rinde más por tarima.`}
+            Haz clic en una opción para verla en 3D.
+          </p>
+        </div>
+        <div class="corr-sort">
+          <span class="corr-sort-lbl">Ordenar por</span>
+          <button type="button" class="corr-sort-btn ${ordenarPor === 'tarima' ? 'corr-sort-activo' : ''}" data-orden="tarima">Por tarima</button>
+          <button type="button" class="corr-sort-btn ${ordenarPor === 'corrugado' ? 'corr-sort-activo' : ''}" data-orden="corrugado">Por corrugado</button>
+        </div>
+      </div>
       <div class="corr-list">${filas}</div>
     </div>
   `;
@@ -283,6 +323,12 @@ function render({ scrollToScene = false } = {}) {
       state.corrugadoId = btn.dataset.corr;
       state.acomodoIndex = 0;
       render({ scrollToScene: true });
+    });
+  });
+  $$('.corr-sort-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.ordenarPor = btn.dataset.orden;
+      render();
     });
   });
   $('#sel-estrategia').addEventListener('change', (e) => {
