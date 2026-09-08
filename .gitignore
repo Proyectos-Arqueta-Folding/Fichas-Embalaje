@@ -3,3 +3,17 @@ Thumbs.db
 node_modules/
 .env
 .env.local
+
+# --- Datos fuente: NO se suben ---
+# El repo va a ser publico (GitHub Pages), y estos archivos traen
+# nombres de clientes reales y precios/costos. Se quedan en la carpeta
+# local; los catalogos que la app necesita ya estan cargados como datos
+# en assets/js/data.js (medidas y gramajes, sin precios).
+AFFP*.pdf
+Corrugados Precios y medidas.xlsx
+Espesores_carton_pegues.xlsx
+Proveedores_Lozano.xlsx
+
+# Config de la sesion de Claude: apunta a rutas temporales que dejan de
+# existir al cerrar la sesion. Para levantar la app usa abrir-app.bat.
+.claude/
