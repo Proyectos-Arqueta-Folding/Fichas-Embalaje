@@ -264,13 +264,19 @@ function render({ scrollToScene = false } = {}) {
 
     <div class="af-card">
       <div class="af-actions">
-        <button class="af-btn af-btn-ghost" id="btn-pdf" disabled title="Próximo paso: exportar a PDF">Exportar PDF (próximamente)</button>
+        <button class="af-btn af-btn-primary" id="btn-pdf">Exportar PDF (ficha de embalaje)</button>
       </div>
     </div>
   `;
 
   renderProductScene($('#scene3d-product'), { corrugado, estrategia, grosorPiezaMm });
   renderPalletScene($('#scene3d-pallet'), { corrugado, estiba, useExtendida: usarExtendida });
+
+  $('#btn-pdf').addEventListener('click', () => {
+    const pesoTotalKg = pesoPiezaG != null ? (pesoPiezaG * estrategia.total) / 1000 : null;
+    renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas, totalMostrado, pesoTotalKg, fecha });
+    window.print();
+  });
 
   $$('.corr-row').forEach((btn) => {
     btn.addEventListener('click', () => {
