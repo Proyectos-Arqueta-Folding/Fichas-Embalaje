@@ -7,14 +7,16 @@
 // De "Corrugados Precios y medidas.xlsx" — dimensiones INTERNAS del corrugado (mm),
 // confirmado contra las fichas de ejemplo (AFCR-0005 = 530x360x230 coincide con
 // "Dimensiones Internas" de la ficha SUPERPACK).
+// Los precios por corrugado NO se incluyen aquí a propósito: el repo es
+// público y el cálculo no los necesita.
 const CORRUGADOS = [
-  { id: 'AFCR-0001', largo: 500, ancho: 400, alto: 370, precio: 20.26 },
-  { id: 'AFCR-0002', largo: 360, ancho: 280, alto: 260, precio: 11.12 },
-  { id: 'AFCR-0004', largo: 220, ancho: 210, alto: 135, precio: 7.37 },
-  { id: 'AFCR-0005', largo: 530, ancho: 360, alto: 230, precio: 15.11 },
-  { id: 'AFCR-0008', largo: 410, ancho: 335, alto: 275, precio: 13.48 },
-  { id: 'AFCR-0010', largo: 475, ancho: 395, alto: 275, precio: 15.30 },
-  { id: 'AFCR-0009', largo: 373, ancho: 335, alto: 252, precio: 12.74 },
+  { id: 'AFCR-0001', largo: 500, ancho: 400, alto: 370 },
+  { id: 'AFCR-0002', largo: 360, ancho: 280, alto: 260 },
+  { id: 'AFCR-0004', largo: 220, ancho: 210, alto: 135 },
+  { id: 'AFCR-0005', largo: 530, ancho: 360, alto: 230 },
+  { id: 'AFCR-0008', largo: 410, ancho: 335, alto: 275 },
+  { id: 'AFCR-0010', largo: 475, ancho: 395, alto: 275 },
+  { id: 'AFCR-0009', largo: 373, ancho: 335, alto: 252 },
 ];
 
 // De "Espesores_carton_pegues.xlsx" — espesor de una capa de cartón sólido por calibre (mm).
