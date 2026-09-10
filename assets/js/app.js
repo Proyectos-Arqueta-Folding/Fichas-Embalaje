@@ -760,18 +760,39 @@ async function pintarHistorial() {
   const caja = $('#historial-lista');
   if (!caja) return;
 
-  let grupos;
+  let todos;
   try {
-    grupos = await historialAgrupado();
+    todos = await historialAgrupado();
   } catch (err) {
     caja.innerHTML = `<div class="ocr-estado ocr-aviso">No se pudo leer el historial: ${err.message}</div>`;
     return;
   }
 
-  if (!grupos.length) {
+  if (!todos.length) {
     caja.innerHTML = fuenteHistorialHTML()
       + `<div class="hist-vacio">Todavía no hay fichas guardadas.
       Calcula una y presiona <b>Guardar en el historial</b>.</div>`;
+    $('#hist-conteo').textContent = '';
+    return;
+  }
+
+  // Filtro por código, cliente o artículo. Sin esto, encontrar una ficha
+  // vieja entre decenas es imposible.
+  const q = ($('#hist-buscar').value || '').trim().toLowerCase();
+  const grupos = q
+    ? todos.filter((g) => g.codigo.toLowerCase().includes(q)
+        || g.versiones.some((f) => `${f.cliente || ''} ${f.articulo || ''} ${f.realizado || ''}`
+          .toLowerCase().includes(q)))
+    : todos;
+
+  const totalVersiones = todos.reduce((s, g) => s + g.versiones.length, 0);
+  $('#hist-conteo').textContent = q
+    ? `${grupos.length} de ${todos.length} códigos`
+    : `${todos.length} ${todos.length === 1 ? 'código' : 'códigos'} · ${totalVersiones} ${totalVersiones === 1 ? 'ficha' : 'fichas'}`;
+
+  if (!grupos.length) {
+    caja.innerHTML = fuenteHistorialHTML()
+      + `<div class="hist-vacio">Ningún código, cliente o artículo coincide con “${q}”.</div>`;
     return;
   }
 
@@ -892,6 +913,8 @@ $('#btn-historial').addEventListener('click', () => {
   else panel.setAttribute('hidden', '');
   $('#btn-historial').textContent = abierto ? 'Ocultar historial' : 'Ver historial';
 });
+
+$('#hist-buscar').addEventListener('input', () => pintarHistorial());
 
 // Se prefiere Supabase (historial compartido) y se cae a localStorage si
 // no responde, para que la app nunca se quede sin historial.
