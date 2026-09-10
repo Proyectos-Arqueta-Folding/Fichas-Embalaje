@@ -192,7 +192,7 @@ function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas
         <td class="pf-label">Total de Piezas:</td><td>${estrategia.total} pzas.</td>
       </tr>
       <tr>
-        <td></td><td></td>
+        <td class="pf-label">Caja armada:</td><td>${input.largo} X ${input.ancho} X ${input.alto} mm</td>
         <td class="pf-label">Tarima:</td><td>${corrugadoTarimaLabel()}</td>
         <td class="pf-label">Peso Piezas*:</td><td>${pesoTotalKg != null ? `${fmtPf(pesoTotalKg)} kg.` : '—'}</td>
       </tr>

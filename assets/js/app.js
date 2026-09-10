@@ -338,6 +338,10 @@ function render({ scrollToScene = false } = {}) {
           <td class="label">Estiba</td><td class="value">${camasMostradas} cajas${usarExtendida ? ' ⚠️ excede alto normal' : ''}</td>
         </tr>
         <tr>
+          <td class="label">Caja armada</td><td class="value">${input.largo} × ${input.ancho} × ${input.alto} mm</td>
+          <td class="label">Caja doblada</td><td class="value">${fmt(largoDobladoMm)} × ${fmt(altoDobladoMm)} mm</td>
+        </tr>
+        <tr>
           <td class="label">Tarima</td><td class="value">${TARIMA.largo_cm} × ${TARIMA.ancho_cm} cm</td>
           <td class="label">Postetas por corrugado</td><td class="value">${estrategiaLabel(estrategia)}</td>
         </tr>
@@ -413,6 +417,9 @@ $('#ficha-form').addEventListener('submit', (e) => {
     realizado: $('#realizado').value.trim(),
     largo: Number($('#largo').value),
     ancho: Number($('#ancho').value),
+    // Alto de la caja ARMADA. No entra en el cálculo de empaque (ese usa
+    // el alto de la lámina), pero sí se documenta en la ficha.
+    alto: Number($('#alto').value),
     tipoCarton: tipoCartonSelect.value,
     calibre: tipoCartonSelect.value === 'solido' ? Number(calibreSelect.value) : calibreSelect.value,
     material: materialSelect.value,
@@ -470,6 +477,7 @@ $('#btn-nueva').addEventListener('click', () => {
   $('#realizado').value = 'PREPRENSA';
   $('#largo').value = '271';
   $('#ancho').value = '115';
+  $('#alto').value = '106';
   calibreSelect.value = '14';
   materialSelect.value = 'CAPLE CHILENO REV CAFE';
   $('#pegue').value = 'fondo_automatico';
