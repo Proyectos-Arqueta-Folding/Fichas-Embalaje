@@ -20,3 +20,6 @@ Proveedores_Lozano.xlsx
 # Config de la sesion de Claude: apunta a rutas temporales que dejan de
 # existir al cerrar la sesion. Para levantar la app usa abrir-app.bat.
 .claude/
+
+# Capturas sueltas que caen en la carpeta del proyecto
+Captura de pantalla *.png

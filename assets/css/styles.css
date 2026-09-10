@@ -367,7 +367,7 @@ html, body {
   margin-bottom: 10px;
 }
 .pf-header td { border: 1px solid #000; padding: 2.5px 7px; vertical-align: middle; }
-.pf-logo { width: 60px; text-align: center; }
+.pf-logo { width: 82px; text-align: center; padding: 3px 6px !important; }
 .pf-logo-svg { width: 40px; height: 40px; }
 .pf-title { font-size: 18px; font-weight: 700; text-align: center; }
 .pf-field { font-size: 12px; }

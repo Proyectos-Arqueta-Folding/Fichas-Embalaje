@@ -666,4 +666,4 @@ $('#btn-nueva').addEventListener('click', () => {
 
 // Logo de la barra superior (variante clara, porque el fondo es azul marino).
 const cajaLogo = $('#af-logo');
-if (cajaLogo) cajaLogo.innerHTML = logoArquetaSVG({ alto: 40, variante: 'claro' });
+if (cajaLogo) cajaLogo.innerHTML = logoAppHTML(42);

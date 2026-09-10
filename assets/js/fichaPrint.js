@@ -632,7 +632,7 @@ function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas
   el.innerHTML = `
     <table class="pf-header">
       <tr>
-        <td class="pf-logo" rowspan="4">${logoArquetaSVG({ alto: 34, variante: 'oscuro' })}</td>
+        <td class="pf-logo" rowspan="4">${logoFichaHTML(70)}</td>
         <td class="pf-title" colspan="2" rowspan="1">Ficha de Embalaje</td>
         <td class="pf-meta-label">Código<br>De Producto:</td>
         <td class="pf-meta-value">${input.codigo || '—'}</td>
