@@ -705,15 +705,18 @@ html, body {
 .hist-abrir { flex: 0 0 auto; padding: 6px 14px; font-size: 12px; }
 .hist-borrar {
   flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
   color: var(--af-ink-soft);
-  font-size: 15px;
   line-height: 1;
   cursor: pointer;
-  padding: 4px 6px;
-  border-radius: 6px;
+  padding: 6px;
+  border-radius: 7px;
 }
+.hist-borrar svg { width: 17px; height: 17px; display: block; }
 .hist-borrar:hover { background: #fdeaea; color: #8a2a2a; }
 
 @media (max-width: 760px) {

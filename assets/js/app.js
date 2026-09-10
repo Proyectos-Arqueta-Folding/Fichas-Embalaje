@@ -816,6 +816,8 @@ function migasHTML() {
 // clientes o de productos sin tener que leer las migas.
 const ICONO_CLIENTE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 9h2M13 9h2M9 13h2M13 13h2M9 17h6"/></svg>';
 const ICONO_PRODUCTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>';
+// Bote de basura: tapa, cuerpo y las dos rayas de adentro.
+const ICONO_BASURA = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v5M14 11v5"/></svg>';
 
 /** Nivel 1: los clientes. */
 function nivelClientesHTML(arbol) {
@@ -861,7 +863,8 @@ function nivelVersionesHTML(producto) {
       </div>
       <button class="af-btn af-btn-ghost hist-abrir" data-id="${f.id}">Abrir</button>
       ${almacen.puedeBorrar === false ? ''
-        : `<button class="hist-borrar" data-id="${f.id}" title="Borrar esta versión">✕</button>`}
+        : `<button class="hist-borrar" data-id="${f.id}" title="Mandar al basurero"
+             aria-label="Mandar al basurero">${ICONO_BASURA}</button>`}
     </div>
   `).join('');
 }
