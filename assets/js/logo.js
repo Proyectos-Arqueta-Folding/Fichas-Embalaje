@@ -1,11 +1,12 @@
 /**
  * Logo de Arqueta Folding.
  *
- * Los mapas de bits viven en assets/js/logoImg.js como data-URI, no como
- * <img src="assets/img/..."> — así la misma función sirve en el sitio de
- * GitHub Pages Y en el bundle de un solo archivo del Artifact, donde una
- * ruta a assets/ quedaría rota. Los PNG originales quedan en assets/img/
- * por si hay que regenerarlos.
+ * Los mapas de bits viven en logoImg.js como data-URI, y no como una
+ * etiqueta img apuntando a la carpeta de imágenes: así la misma función
+ * sirve en el sitio de GitHub Pages Y en el bundle de un solo archivo
+ * del Artifact, donde una ruta relativa quedaría rota. Los PNG
+ * originales quedan en la carpeta de imágenes por si hay que
+ * regenerarlos.
  *
  * Hay dos versiones, cada una sobre el fondo para el que fue diseñada:
  * la horizontal sobre azul marino para la barra de la app, y la vertical
