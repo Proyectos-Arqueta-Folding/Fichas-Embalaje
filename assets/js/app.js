@@ -131,6 +131,45 @@ function pisoLabel(piso) {
 // corrugado/estrategia puedan re-renderizar sin recalcular el grosor.
 let state = null;
 
+/** Altura en cm a partir de mm, con un decimal solo si hace falta. */
+function alturaCm(mm) {
+  const v = Math.round(mm / 10 * 10) / 10;
+  return `${v % 1 === 0 ? v.toFixed(0) : v.toFixed(1)} cm`;
+}
+
+/**
+ * Desglose de la altura del bulto, con la cifra EXACTA de cada opción y
+ * por cuánto se pasa del límite. La suma se escribe completa
+ * (tarima + camas x alto) para que se pueda auditar a mano.
+ */
+function alturaLineaHTML(opcion, corrugado, estiba, etiqueta) {
+  const suma = `${alturaCm(estiba.altoTarimaMm)} de tarima + ${opcion.camas} × ${corrugado.alto} mm`;
+  const veredicto = opcion.excesoMm > 0
+    ? `<b style="color:#8a2a2a;">se pasa ${alturaCm(opcion.excesoMm)}</b>`
+    : `<b style="color:#14603a;">dentro del límite</b> (sobran ${alturaCm(estiba.altoMaxTotalMm - opcion.totalMm)})`;
+  return `<div style="margin-top:4px;">${etiqueta}: ${suma} = <b>${alturaCm(opcion.totalMm)}</b> de bulto — ${veredicto}</div>`;
+}
+
+function alturaAvisoHTML(estiba, corrugado, usarExtendida) {
+  const { segura, extendida } = estiba;
+  // Si hasta la opción segura se pasa, el corrugado es más alto que el
+  // espacio útil y no hay acomodo dentro del límite.
+  const rojo = segura.excesoMm > 0 || usarExtendida;
+  return `
+    <div class="af-note" style="margin-top:14px; ${rojo
+      ? 'background:#fdeaea; border-color:#e8b4b4; color:#8a2a2a;'
+      : 'background:#eef6fb; border-color:#a9cbe4; color:#1a3f5c;'}">
+      <b>Altura del bulto</b> — límite de ${alturaCm(estiba.altoMaxTotalMm)} (${alturaCm(estiba.altoUtilMm)} de carga sobre ${alturaCm(estiba.altoTarimaMm)} de tarima):
+      ${alturaLineaHTML(segura, corrugado, estiba, `Normal, ${segura.camas} cama${segura.camas > 1 ? 's' : ''} (${estiba.total} corrugados)`)}
+      ${alturaLineaHTML(extendida, corrugado, estiba, `Extendida, ${extendida.camas} camas (${estiba.totalExtendido} corrugados)`)}
+      <label style="display:block; margin-top:8px; font-weight:600;">
+        <input type="checkbox" id="chk-altura-extendida" ${usarExtendida ? 'checked' : ''}>
+        Usar la opción extendida — ${extendida.camas} camas, ${alturaCm(extendida.totalMm)} de bulto (${alturaCm(extendida.excesoMm)} por encima del límite)
+      </label>
+    </div>
+  `;
+}
+
 function currentSelection() {
   const entry = state.resultado.porCorrugado.find((p) => p.corrugado.id === state.corrugadoId);
 
@@ -296,6 +335,7 @@ function render({ scrollToScene = false } = {}) {
   const usarExtendida = !!state.alturaExtendida;
   const camasMostradas = usarExtendida ? estiba.camasExtendidas : estiba.camas;
   const totalMostrado = usarExtendida ? estiba.totalExtendido : estiba.total;
+  const alturaElegida = usarExtendida ? estiba.extendida : estiba.segura;
 
   const totalPostetas = estrategia.camas.reduce((s, c) => s + c.postetasPorCama, 0);
 
@@ -358,15 +398,7 @@ function render({ scrollToScene = false } = {}) {
         <div class="stat"><div class="num">${totalMostrado * estrategia.total}</div><div class="lbl">Piezas por tarima</div></div>
       </div>
       ${estiba.piso.extra > 0 ? `<div class="af-note" style="margin-top:14px;">Este acomodo mezcla orientaciones: ${estiba.piso.principal} corrugados en la orientación principal + ${estiba.piso.extra} rotados 90° aprovechando la tira sobrante.</div>` : ''}
-      ${estiba.excedeAlturaNormal ? `
-        <div class="af-note" style="margin-top:14px; background:#fdeaea; border-color:#e8b4b4; color:#8a2a2a;">
-          <b>⚠️ Aviso de altura:</b> con ${estiba.camas} cama${estiba.camas > 1 ? 's' : ''} el bulto mide dentro del alto útil normal (${TARIMA.alto_util_cm} cm).
-          Esta tarima admite hasta ${estiba.camasExtendidas} camas si se permite llegar al alto total de la tarima (${TARIMA.alto_total_cm} cm) — eso da ${estiba.totalExtendido} corrugados en vez de ${estiba.total}, pero excede el límite normal de manejo.
-          <label style="display:block; margin-top:8px; font-weight:600;">
-            <input type="checkbox" id="chk-altura-extendida" ${usarExtendida ? 'checked' : ''}> Mostrar opción extendida (${estiba.camasExtendidas} camas)
-          </label>
-        </div>
-      ` : ''}
+      ${alturaAvisoHTML(estiba, corrugado, usarExtendida)}
     </div>
 
     <div class="ficha">
@@ -393,7 +425,11 @@ function render({ scrollToScene = false } = {}) {
         </tr>
         <tr>
           <td class="label">Dimensiones Internas</td><td class="value">${corrugado.largo} × ${corrugado.ancho} × ${corrugado.alto} mm</td>
-          <td class="label">Estiba</td><td class="value">${camasMostradas} cajas${usarExtendida ? ' ⚠️ excede alto normal' : ''}</td>
+          <td class="label">Estiba</td>
+          <td class="value">${camasMostradas} cajas — bulto de ${alturaCm(alturaElegida.totalMm)}${
+            alturaElegida.excesoMm > 0
+              ? ` <span style="color:#8a2a2a;">⚠️ se pasa ${alturaCm(alturaElegida.excesoMm)}</span>`
+              : ''}</td>
         </tr>
         <tr>
           <td class="label">Caja armada</td><td class="value">${input.largo} × ${input.ancho} × ${input.alto} mm</td>
@@ -434,7 +470,7 @@ function render({ scrollToScene = false } = {}) {
     const pesoTotalKg = pesoPiezaG != null ? (pesoPiezaG * estrategia.total) / 1000 : null;
     renderPrintFicha({
       input, corrugado, estrategia, estiba, camasMostradas, totalMostrado, pesoTotalKg, fecha,
-      grosorPiezaMm, largoDobladoMm, altoDobladoMm,
+      grosorPiezaMm, largoDobladoMm, altoDobladoMm, alturaElegida,
     });
     window.print();
   });

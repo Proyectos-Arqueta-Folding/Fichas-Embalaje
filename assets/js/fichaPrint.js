@@ -448,7 +448,7 @@ function tarjetaCama(cama, index, grosorPiezaMm, corrugado) {
  * estibados encima, a escala, con las medidas rotuladas (120 x 120 cm
  * de base, alto de cada cama y alto total en cm).
  */
-function svgEntarimado({ corrugado, estiba, camas }) {
+function svgEntarimado({ corrugado, estiba, camas, alturaElegida }) {
   const largoT = TARIMA.largo_cm * 10;
   const anchoT = TARIMA.ancho_cm * 10;
   const altoT = TARIMA.alto_tarima_cm * 10;
@@ -515,18 +515,37 @@ function svgEntarimado({ corrugado, estiba, camas }) {
   acotarIso(esc, [largoT, 0, 0], [largoT, anchoT, 0], `${TARIMA.ancho_cm} cm`, [20, 26]);
   acotarIso(esc, [largoT, 0, 0], [largoT, 0, altoT], `tarima ${TARIMA.alto_tarima_cm} cm`, [30, 0], { clase: 'pf-dim-small' });
   acotarIso(esc, [largoT, 0, altoT], [largoT, 0, altoTotal], `${camas} × ${corrugado.alto} mm`, [30, 0], { clase: 'pf-dim-small' });
+
+  // El total va con el exceso pegado cuando se pasa del límite, para que
+  // en la hoja impresa se vea de cuánto es el sobrepaso sin tener que
+  // sacar la cuenta.
+  const exceso = alturaElegida && alturaElegida.excesoMm > 0 ? alturaElegida.excesoMm : 0;
   acotarIso(esc, [0, anchoT, 0], [0, anchoT, altoTotal], `TOTAL ${fmtCm(altoTotal)}`, [-34, 0]);
+  if (exceso > 0) {
+    // Línea del límite permitido, para ver contra qué se compara.
+    const qA = esc.p([largoT, anchoT, estiba.altoMaxTotalMm]);
+    const qB = esc.p([0, anchoT, estiba.altoMaxTotalMm]);
+    const qC = esc.p([0, 0, estiba.altoMaxTotalMm]);
+    const etiqueta = `límite ${fmtCm(estiba.altoMaxTotalMm)} — se pasa ${fmtCm(exceso)}`;
+    // El bounding box solo conoce puntos, no el ancho del texto, así que
+    // hay que reservarle el espacio a mano o el viewBox lo recorta.
+    esc.tocar([qB[0] - 6 - etiqueta.length * 4.2, qB[1] - 12]);
+    esc.add(CAPA_ANOTACION, `
+      <polyline points="${polyStr([qA, qB, qC])}" fill="none" stroke="#c0392b" stroke-width="1.1" stroke-dasharray="5 3"/>
+      <text x="${(qB[0] - 6).toFixed(1)}" y="${(qB[1] - 4).toFixed(1)}" text-anchor="end" class="pf-dim-exceso">${etiqueta}</text>
+    `);
+  }
 
   return esc.render('pf-svg');
 }
 
 /** Construye e inyecta la ficha imprimible con los datos ya calculados. */
-function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas, totalMostrado, pesoTotalKg, fecha, grosorPiezaMm, largoDobladoMm, altoDobladoMm }) {
+function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas, totalMostrado, pesoTotalKg, fecha, grosorPiezaMm, largoDobladoMm, altoDobladoMm, alturaElegida }) {
   const el = document.getElementById('print-ficha');
   if (!el) return;
 
   const empaqueSvg = svgCorrugadoConPostetas({ corrugado, estrategia, grosorPiezaMm });
-  const entarimadoSvg = svgEntarimado({ corrugado, estiba, camas: camasMostradas });
+  const entarimadoSvg = svgEntarimado({ corrugado, estiba, camas: camasMostradas, alturaElegida });
   const tarjetas = estrategia.camas.map((c, i) => tarjetaCama(c, i, grosorPiezaMm, corrugado)).join('');
 
   // Peso bruto por corrugado = piezas + la propia caja de embarque.
@@ -597,7 +616,11 @@ function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas
       </tr>
       <tr>
         <td class="pf-label">Dimensiones Internas:</td><td>${corrugado.largo} X ${corrugado.ancho} X ${corrugado.alto} mm</td>
-        <td class="pf-label">Estiba:</td><td>${camasMostradas} cajas</td>
+        <td class="pf-label">Estiba:</td>
+        <td>${camasMostradas} cajas${alturaElegida ? ` — bulto ${fmtCm(alturaElegida.totalMm)}${
+          alturaElegida.excesoMm > 0
+            ? ` <b style="color:#c0392b;">(se pasa ${fmtCm(alturaElegida.excesoMm)} del límite de ${fmtCm(estiba.altoMaxTotalMm)})</b>`
+            : ''}` : ''}</td>
         <td class="pf-label">Total de Piezas:</td><td>${estrategia.total} pzas.</td>
       </tr>
       <tr>

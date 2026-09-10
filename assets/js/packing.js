@@ -491,24 +491,49 @@ function calcularPesoCorrugadoG(corrugado, gramaje = GRAMAJE_CORRUGADO_36ECT) {
 /**
  * Calcula cuántos corrugados caben en la tarima: acomodo 2D en el piso
  * (mezclando orientaciones si eso da más piezas) y cuántas camas de
- * corrugados caben en la altura. Da 2 opciones de altura: "segura"
- * (dentro del alto útil normal) y "extendida" (usando el alto total de
- * la tarima, con aviso porque excede el límite normal). APROXIMACIÓN: se
- * usan las dimensiones internas del corrugado (únicas que tenemos en el
- * catálogo) como si fueran las externas — el grosor propio del corrugado
- * (unos pocos mm de cartón) no está modelado todavía, así que el conteo
- * real puede ser 1-2 corrugados menos por lado en la práctica.
+ * corrugados caben en la altura.
+ *
+ * Da 2 opciones de altura, cada una con su ALTURA EXACTA en mm para
+ * poder ver por cuánto se pasa:
+ *
+ *  - "segura": el bulto completo (tarima + carga) cabe en el límite de
+ *    120 cm, porque la carga se queda en los 100 cm útiles.
+ *  - "extendida": una cama más. Esta SÍ se pasa del límite, y por eso
+ *    se reporta `excesoExtendidoMm`.
+ *
+ * OJO — corrección: antes la extendida se calculaba como
+ * floor(120 cm / alto), es decir tratando los 120 cm de límite TOTAL
+ * como si fueran espacio disponible para carga. Eso contaba doble la
+ * tarima: el bulto real llegaba a 20 + 120 = 140 cm, 20 cm más de lo
+ * que decía el propio aviso. Con los 7 corrugados del catálogo ambas
+ * fórmulas dan el mismo número (una cama más), así que el conteo no
+ * cambia; lo que cambia es que ahora la altura reportada es la real.
+ *
+ * APROXIMACIÓN: se usan las dimensiones internas del corrugado (únicas
+ * que tenemos en el catálogo) como si fueran las externas — el grosor
+ * propio del corrugado (unos pocos mm de cartón) no está modelado
+ * todavía, así que el conteo real puede ser 1-2 corrugados menos por
+ * lado en la práctica.
  */
 function calcularEstibaEnTarima(corrugado) {
   const largoTarima = TARIMA.largo_cm * 10; // mm
   const anchoTarima = TARIMA.ancho_cm * 10;
-  const altoUtil = TARIMA.alto_util_cm * 10;
-  const altoTotal = TARIMA.alto_total_cm * 10;
+  const altoTarima = TARIMA.alto_tarima_cm * 10;
+  const altoUtil = TARIMA.alto_util_cm * 10;   // espacio de carga permitido
+  const altoMaxTotal = TARIMA.alto_total_cm * 10; // límite del bulto completo
 
   const piso = evaluarPisoTarima(largoTarima, anchoTarima, corrugado.largo, corrugado.ancho);
 
   const camasSeguras = Math.max(1, Math.floor(altoUtil / corrugado.alto));
-  const camasExtendidas = Math.max(camasSeguras, Math.floor(altoTotal / corrugado.alto));
+  const camasExtendidas = camasSeguras + 1;
+
+  const alturas = (camas) => {
+    const carga = camas * corrugado.alto;
+    const total = altoTarima + carga;
+    return { camas, cargaMm: carga, totalMm: total, excesoMm: Math.max(0, total - altoMaxTotal) };
+  };
+  const segura = alturas(camasSeguras);
+  const extendida = alturas(camasExtendidas);
 
   return {
     piso,
@@ -517,7 +542,12 @@ function calcularEstibaEnTarima(corrugado) {
     total: piso.total * camasSeguras,
     camasExtendidas,
     totalExtendido: piso.total * camasExtendidas,
-    excedeAlturaNormal: camasExtendidas > camasSeguras,
+    // Alturas exactas (mm) para poder avisar por cuánto se pasa.
+    altoTarimaMm: altoTarima,
+    altoMaxTotalMm: altoMaxTotal,
+    altoUtilMm: altoUtil,
+    segura,
+    extendida,
     aproximado: true,
   };
 }
