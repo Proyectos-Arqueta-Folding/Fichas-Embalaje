@@ -237,24 +237,61 @@ async function guardarFichaActual({ input, seleccion, resumen }) {
 }
 
 /**
- * Agrupa por código y ordena: los códigos por su versión más reciente,
- * y dentro de cada código las versiones de la más nueva a la más vieja.
+ * Arma el árbol del historial en tres niveles: CLIENTE -> PRODUCTO ->
+ * VERSIONES, que es como se busca en la práctica ("la ficha de tal
+ * cliente, del producto tal, la versión de tal fecha").
+ *
+ * Todo se ordena por lo más reciente primero, y cada nivel carga la
+ * fecha de su última ficha para poder ubicarse sin abrirlo.
  */
-async function historialAgrupado() {
+async function arbolHistorial() {
   const fichas = await almacen.listar();
-  const porCodigo = new Map();
+
+  const porCliente = new Map();
   fichas.forEach((f) => {
-    const k = (f.codigo || 'SIN-CODIGO').trim().toUpperCase();
-    if (!porCodigo.has(k)) porCodigo.set(k, []);
-    porCodigo.get(k).push(f);
+    const cliente = (f.cliente || '').trim() || 'SIN CLIENTE';
+    const codigo = (f.codigo || 'SIN-CODIGO').trim().toUpperCase();
+    if (!porCliente.has(cliente)) porCliente.set(cliente, new Map());
+    const productos = porCliente.get(cliente);
+    if (!productos.has(codigo)) productos.set(codigo, []);
+    productos.get(codigo).push(f);
   });
 
-  return [...porCodigo.entries()]
-    .map(([codigo, versiones]) => ({
-      codigo,
-      versiones: versiones.sort((a, b) => b.version - a.version),
-    }))
-    .sort((a, b) => new Date(b.versiones[0].guardadaEn) - new Date(a.versiones[0].guardadaEn));
+  const masNueva = (a, b) => new Date(b.ultima) - new Date(a.ultima);
+
+  return [...porCliente.entries()].map(([cliente, mapaProductos]) => {
+    const productos = [...mapaProductos.entries()].map(([codigo, lista]) => {
+      const versiones = lista.sort((a, b) => b.version - a.version);
+      return {
+        codigo,
+        cliente,
+        // El artículo puede haber cambiado entre versiones: manda el de
+        // la más reciente.
+        articulo: versiones[0].articulo || '—',
+        versiones,
+        ultima: versiones[0].guardadaEn,
+      };
+    }).sort(masNueva);
+
+    return {
+      cliente,
+      productos,
+      totalVersiones: productos.reduce((s, p) => s + p.versiones.length, 0),
+      ultima: productos[0].ultima,
+    };
+  }).sort(masNueva);
+}
+
+/** Fecha con día, mes, año y hora. Para el renglón de cada versión. */
+function fechaLarga(iso) {
+  const d = new Date(iso);
+  return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'long', year: 'numeric' })
+    + ', ' + d.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+}
+
+/** Solo el día. Para los conteos de cliente y producto. */
+function fechaDia(iso) {
+  return new Date(iso).toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
 /** Fecha corta y legible para la lista. */

@@ -754,72 +754,173 @@ function fuenteHistorialHTML() {
       Lo que guardes aquí <b>no lo ven los demás</b> y se pierde si se limpian los datos del navegador.
     </div>`;
 }
+/**
+ * Navegación del historial: un menú de tres niveles.
+ *
+ *   CLIENTE  ->  PRODUCTO  ->  VERSIONES
+ *
+ * `histRuta` dice en qué nivel se está. La barra de búsqueda funciona
+ * en paralelo: cuando trae texto se salta la navegación y muestra los
+ * productos que coinciden, de cualquier cliente, para poder llegar de
+ * un tiro a una ficha sin acordarse de quién era.
+ */
+let histRuta = { cliente: null, codigo: null };
 
-/** Dibuja la lista de fichas guardadas, agrupada por código. */
+/** Migas de pan del menú, para saber dónde se está y poder regresar. */
+function migasHTML() {
+  const partes = ['<button class="hist-miga" data-nivel="raiz">Clientes</button>'];
+  if (histRuta.cliente) {
+    partes.push('<span class="hist-sep">›</span>');
+    partes.push(histRuta.codigo
+      ? `<button class="hist-miga" data-nivel="cliente">${histRuta.cliente}</button>`
+      : `<span class="hist-miga-actual">${histRuta.cliente}</span>`);
+  }
+  if (histRuta.codigo) {
+    partes.push('<span class="hist-sep">›</span>');
+    partes.push(`<span class="hist-miga-actual">${histRuta.codigo}</span>`);
+  }
+  return `<div class="hist-migas">${partes.join('')}</div>`;
+}
+
+/** Nivel 1: los clientes. */
+function nivelClientesHTML(arbol) {
+  return arbol.map((c) => `
+    <button class="hist-item" data-cliente="${encodeURIComponent(c.cliente)}">
+      <span class="hist-item-nombre">${c.cliente}</span>
+      <span class="hist-item-meta">
+        ${c.productos.length} ${c.productos.length === 1 ? 'producto' : 'productos'}
+        · ${c.totalVersiones} ${c.totalVersiones === 1 ? 'ficha' : 'fichas'}
+        · última ${fechaDia(c.ultima)}
+      </span>
+      <span class="hist-flecha">›</span>
+    </button>
+  `).join('');
+}
+
+/** Nivel 2: los productos de un cliente. */
+function nivelProductosHTML(productos) {
+  return productos.map((p) => `
+    <button class="hist-item" data-codigo="${encodeURIComponent(p.codigo)}">
+      <span class="hist-item-nombre">${p.codigo} <span class="hist-item-art">${p.articulo}</span></span>
+      <span class="hist-item-meta">
+        ${p.versiones.length} ${p.versiones.length === 1 ? 'versión' : 'versiones'}
+        · última ${fechaDia(p.ultima)}
+      </span>
+      <span class="hist-flecha">›</span>
+    </button>
+  `).join('');
+}
+
+/** Nivel 3: las versiones de un producto, con su fecha completa. */
+function nivelVersionesHTML(producto) {
+  return producto.versiones.map((f) => `
+    <div class="hist-fila">
+      <span class="hist-ver">V${f.version}</span>
+      <div class="hist-datos">
+        <div class="hist-fecha">${fechaLarga(f.guardadaEn)}</div>
+        <div class="hist-meta">
+          ${f.realizado ? `${f.realizado} · ` : ''}${f.seleccion.corrugadoId}
+          · posteta de ${f.seleccion.piezasPorPosteta}
+          · ${f.resumen.piezasPorTarima} pzs/tarima
+        </div>
+      </div>
+      <button class="af-btn af-btn-ghost hist-abrir" data-id="${f.id}">Abrir</button>
+      ${almacen.puedeBorrar === false ? ''
+        : `<button class="hist-borrar" data-id="${f.id}" title="Borrar esta versión">✕</button>`}
+    </div>
+  `).join('');
+}
+
+/** Resultados de búsqueda: productos de cualquier cliente que coinciden. */
+function resultadosHTML(productos) {
+  return productos.map((p) => `
+    <button class="hist-item" data-cliente="${encodeURIComponent(p.cliente)}" data-codigo="${encodeURIComponent(p.codigo)}">
+      <span class="hist-item-nombre">${p.codigo} <span class="hist-item-art">${p.articulo}</span></span>
+      <span class="hist-item-meta">
+        ${p.cliente} · ${p.versiones.length} ${p.versiones.length === 1 ? 'versión' : 'versiones'}
+        · última ${fechaDia(p.ultima)}
+      </span>
+      <span class="hist-flecha">›</span>
+    </button>
+  `).join('');
+}
+
+/** Dibuja el menú del historial en el nivel que toque. */
 async function pintarHistorial() {
   const caja = $('#historial-lista');
   if (!caja) return;
 
-  let todos;
+  let arbol;
   try {
-    todos = await historialAgrupado();
+    arbol = await arbolHistorial();
   } catch (err) {
     caja.innerHTML = `<div class="ocr-estado ocr-aviso">No se pudo leer el historial: ${err.message}</div>`;
     return;
   }
 
-  if (!todos.length) {
+  const conteo = $('#hist-conteo');
+  if (!arbol.length) {
     caja.innerHTML = fuenteHistorialHTML()
       + `<div class="hist-vacio">Todavía no hay fichas guardadas.
       Calcula una y presiona <b>Guardar en el historial</b>.</div>`;
-    $('#hist-conteo').textContent = '';
+    conteo.textContent = '';
     return;
   }
 
-  // Filtro por código, cliente o artículo. Sin esto, encontrar una ficha
-  // vieja entre decenas es imposible.
   const q = ($('#hist-buscar').value || '').trim().toLowerCase();
-  const grupos = q
-    ? todos.filter((g) => g.codigo.toLowerCase().includes(q)
-        || g.versiones.some((f) => `${f.cliente || ''} ${f.articulo || ''} ${f.realizado || ''}`
-          .toLowerCase().includes(q)))
-    : todos;
+  let cuerpo = '';
+  let migas = '';
 
-  const totalVersiones = todos.reduce((s, g) => s + g.versiones.length, 0);
-  $('#hist-conteo').textContent = q
-    ? `${grupos.length} de ${todos.length} códigos`
-    : `${todos.length} ${todos.length === 1 ? 'código' : 'códigos'} · ${totalVersiones} ${totalVersiones === 1 ? 'ficha' : 'fichas'}`;
+  if (q) {
+    // Buscando: se ignora el nivel y se listan los productos que
+    // coinciden por código, artículo o cliente.
+    const todos = arbol.flatMap((c) => c.productos);
+    const hallados = todos.filter((p) =>
+      `${p.codigo} ${p.articulo} ${p.cliente}`.toLowerCase().includes(q));
+    conteo.textContent = `${hallados.length} de ${todos.length} productos`;
+    cuerpo = hallados.length
+      ? resultadosHTML(hallados)
+      : `<div class="hist-vacio">Nada coincide con “${q}”.</div>`;
+  } else {
+    let cliente = histRuta.cliente ? arbol.find((c) => c.cliente === histRuta.cliente) : null;
+    // Si se borró lo que se estaba viendo, se regresa al nivel de arriba.
+    if (histRuta.cliente && !cliente) histRuta = { cliente: null, codigo: null };
+    let producto = cliente && histRuta.codigo
+      ? cliente.productos.find((p) => p.codigo === histRuta.codigo)
+      : null;
+    if (histRuta.codigo && !producto) histRuta.codigo = null;
 
-  if (!grupos.length) {
-    caja.innerHTML = fuenteHistorialHTML()
-      + `<div class="hist-vacio">Ningún código, cliente o artículo coincide con “${q}”.</div>`;
-    return;
+    migas = migasHTML();
+    if (producto) {
+      conteo.textContent = `${producto.versiones.length} ${producto.versiones.length === 1 ? 'versión' : 'versiones'}`;
+      cuerpo = nivelVersionesHTML(producto);
+    } else if (cliente) {
+      conteo.textContent = `${cliente.productos.length} ${cliente.productos.length === 1 ? 'producto' : 'productos'}`;
+      cuerpo = nivelProductosHTML(cliente.productos);
+    } else {
+      const totalFichas = arbol.reduce((s, c) => s + c.totalVersiones, 0);
+      conteo.textContent = `${arbol.length} ${arbol.length === 1 ? 'cliente' : 'clientes'}`
+        + ` · ${totalFichas} ${totalFichas === 1 ? 'ficha' : 'fichas'}`;
+      cuerpo = nivelClientesHTML(arbol);
+    }
   }
 
-  caja.innerHTML = fuenteHistorialHTML() + grupos.map((g) => `
-    <div class="hist-grupo">
-      <div class="hist-codigo">
-        ${g.codigo}
-        <span class="hist-cuenta">${g.versiones.length} ${g.versiones.length === 1 ? 'versión' : 'versiones'}</span>
-      </div>
-      ${g.versiones.map((f) => `
-        <div class="hist-fila">
-          <span class="hist-ver">V${f.version}</span>
-          <div class="hist-datos">
-            <div class="hist-titulo">${f.articulo || '—'} · ${f.cliente || '—'}</div>
-            <div class="hist-meta">
-              ${fechaCorta(f.guardadaEn)}${f.realizado ? ` · ${f.realizado}` : ''}
-              · ${f.seleccion.corrugadoId} · posteta de ${f.seleccion.piezasPorPosteta}
-              · ${f.resumen.piezasPorTarima} pzs/tarima
-            </div>
-          </div>
-          <button class="af-btn af-btn-ghost hist-abrir" data-id="${f.id}">Abrir</button>
-          ${almacen.puedeBorrar === false ? ''
-            : `<button class="hist-borrar" data-id="${f.id}" title="Borrar esta versión">✕</button>`}
-        </div>
-      `).join('')}
-    </div>
-  `).join('');
+  caja.innerHTML = fuenteHistorialHTML() + migas + `<div class="hist-nivel">${cuerpo}</div>`;
+
+  $$('.hist-item').forEach((b) => b.addEventListener('click', () => {
+    if (b.dataset.cliente) histRuta.cliente = decodeURIComponent(b.dataset.cliente);
+    if (b.dataset.codigo) histRuta.codigo = decodeURIComponent(b.dataset.codigo);
+    // Al entrar desde una búsqueda se limpia el filtro, para quedar
+    // navegando dentro del producto elegido.
+    if (b.dataset.cliente && b.dataset.codigo) $('#hist-buscar').value = '';
+    pintarHistorial();
+  }));
+
+  $$('.hist-miga').forEach((b) => b.addEventListener('click', () => {
+    if (b.dataset.nivel === 'raiz') histRuta = { cliente: null, codigo: null };
+    else histRuta.codigo = null;
+    pintarHistorial();
+  }));
 
   $$('.hist-abrir').forEach((b) => b.addEventListener('click', () => abrirFicha(b.dataset.id)));
   $$('.hist-borrar').forEach((b) => b.addEventListener('click', async () => {
