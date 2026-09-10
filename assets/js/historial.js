@@ -39,10 +39,13 @@ const HISTORIAL_LLAVE = 'af-fichas-v1';
 
 /** Adaptador contra localStorage. Mismo contrato que tendrá Supabase. */
 const almacenLocal = {
-  nombre: 'este navegador',
+  nombre: "este navegador",
   compartido: false,
+  puedeBorrar: true,
+  borradoRecuperable: true,
 
-  async listar() {
+  /** Todas las guardadas, sin importar si están en el basurero. */
+  async todas() {
     try {
       const crudo = localStorage.getItem(HISTORIAL_LLAVE);
       return crudo ? JSON.parse(crudo) : [];
@@ -53,23 +56,43 @@ const almacenLocal = {
     }
   },
 
+  async listar() {
+    return (await this.todas()).filter((f) => !f.borrada);
+  },
+
+  async listarBasurero() {
+    return (await this.todas())
+      .filter((f) => f.borrada)
+      .sort((a, b) => new Date(b.guardadaEn) - new Date(a.guardadaEn));
+  },
+
   async guardarTodas(fichas) {
     localStorage.setItem(HISTORIAL_LLAVE, JSON.stringify(fichas));
   },
 
   async guardar(ficha) {
-    const fichas = await this.listar();
+    const fichas = await this.todas();
     fichas.push(ficha);
     await this.guardarTodas(fichas);
     return ficha;
   },
 
   async obtener(id) {
-    return (await this.listar()).find((f) => f.id === id) || null;
+    return (await this.todas()).find((f) => f.id === id) || null;
   },
 
-  async borrar(id) {
-    await this.guardarTodas((await this.listar()).filter((f) => f.id !== id));
+  async marcar(id, borrada) {
+    const fichas = await this.todas();
+    const f = fichas.find((x) => x.id === id);
+    if (f) f.borrada = borrada;
+    await this.guardarTodas(fichas);
+  },
+
+  async borrar(id) { await this.marcar(id, true); },
+  async restaurar(id) { await this.marcar(id, false); },
+
+  async eliminarDefinitivo(id) {
+    await this.guardarTodas((await this.todas()).filter((f) => f.id !== id));
   },
 };
 
@@ -160,20 +183,60 @@ const almacenSupabase = {
     return filas.length ? this.deFila(filas[0]) : null;
   },
 
+  /** Manda la ficha al basurero. Reversible. */
   async borrar(id) {
+    await this.marcar(id, true, 'supabase-borrado.sql');
+  },
+
+  /** La saca del basurero y vuelve a aparecer en el historial. */
+  async restaurar(id) {
+    await this.marcar(id, false, 'supabase-borrado.sql');
+  },
+
+  async marcar(id, borrada, script) {
     const res = await fetch(`${this.base}?id=eq.${encodeURIComponent(id)}`, {
       method: 'PATCH',
       headers: this.cabeceras,
-      body: JSON.stringify({ borrada: true }),
+      body: JSON.stringify({ borrada }),
     });
     if (!res.ok) {
       const detalle = await res.text();
-      // El caso más probable: todavía no se corre supabase-borrado.sql.
       if (/borrada|column|permission|42501|PGRST204/i.test(detalle)) {
-        throw new Error('Falta habilitar el borrado en la base. Corre supabase-borrado.sql '
+        throw new Error(`Falta habilitar esto en la base. Corre ${script} en el SQL Editor de Supabase.`);
+      }
+      throw new Error(`Supabase ${res.status}: ${detalle}`);
+    }
+  },
+
+  /** Lo que está en el basurero, de lo más reciente a lo más viejo. */
+  async listarBasurero() {
+    const res = await fetch(`${this.base}?select=*&borrada=is.true&order=guardada_en.desc`, { headers: this.cabeceras });
+    if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
+    return (await res.json()).map(this.deFila);
+  },
+
+  /**
+   * Borrado DEFINITIVO. La política de la base solo lo permite sobre
+   * fichas que ya están en el basurero, así que una ficha viva nunca se
+   * puede eliminar de un solo golpe.
+   */
+  async eliminarDefinitivo(id) {
+    const res = await fetch(`${this.base}?id=eq.${encodeURIComponent(id)}`, {
+      method: 'DELETE',
+      headers: this.cabeceras,
+    });
+    if (!res.ok) {
+      const detalle = await res.text();
+      if (/permission|42501|policy/i.test(detalle)) {
+        throw new Error('Falta habilitar el borrado definitivo. Corre supabase-basurero.sql '
           + 'en el SQL Editor de Supabase.');
       }
       throw new Error(`Supabase ${res.status}: ${detalle}`);
+    }
+    // PostgREST responde 204 aunque la política haya filtrado todo, así
+    // que hay que comprobar que de verdad se fue.
+    if (await this.obtener(id)) {
+      throw new Error('La base no permitió eliminarla. Corre supabase-basurero.sql en el SQL Editor.');
     }
   },
 };

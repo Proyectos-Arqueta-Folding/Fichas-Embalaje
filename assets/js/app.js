@@ -1117,3 +1117,100 @@ async function avisoVersion() {
 
 $('#codigo').addEventListener('input', () => avisoVersion());
 $('#version').addEventListener('input', () => avisoVersion());
+// ---------------------------------------------------------------------
+// Basurero
+// ---------------------------------------------------------------------
+
+// Cuando está en true, el panel muestra el basurero en vez del menú.
+let verBasurero = false;
+
+/**
+ * Vista del basurero: lo borrado, con la opción de recuperarlo o de
+ * eliminarlo para siempre.
+ *
+ * Es una lista plana y no el menú de tres niveles: aquí lo que importa
+ * es qué se borró y cuándo, no navegar por cliente.
+ */
+async function pintarBasurero() {
+  const caja = $('#historial-lista');
+  const conteo = $('#hist-conteo');
+
+  let fichas;
+  try {
+    fichas = await almacen.listarBasurero();
+  } catch (err) {
+    caja.innerHTML = `<div class="ocr-estado ocr-aviso">No se pudo leer el basurero: ${err.message}</div>`;
+    return;
+  }
+
+  conteo.textContent = `${fichas.length} ${fichas.length === 1 ? 'ficha borrada' : 'fichas borradas'}`;
+
+  if (!fichas.length) {
+    caja.innerHTML = `
+      <div class="hist-migas"><span class="hist-miga-actual">Basurero</span></div>
+      <div class="hist-nivel"><div class="hist-vacio" style="padding:16px;">
+        El basurero está vacío.
+      </div></div>`;
+    return;
+  }
+
+  caja.innerHTML = `
+    <div class="hist-migas">
+      <span class="hist-miga-actual">Basurero</span>
+      <span class="hist-sep">·</span>
+      <span style="font-size:12px; color:var(--af-ink-soft);">
+        Recupéralas o elimínalas para siempre. Al eliminar aquí, ya no hay vuelta atrás.
+      </span>
+    </div>
+    <div class="hist-nivel">
+      ${fichas.map((f) => `
+        <div class="hist-fila hist-fila-basura">
+          <span class="hist-ver">V${f.version}</span>
+          <div class="hist-datos">
+            <div class="hist-fecha">${f.codigo} · ${f.articulo || '—'}</div>
+            <div class="hist-meta">
+              ${f.cliente || 'SIN CLIENTE'} · guardada el ${fechaLarga(f.guardadaEn)}
+              ${f.realizado ? ` · ${f.realizado}` : ''}
+            </div>
+          </div>
+          <button class="af-btn af-btn-ghost hist-restaurar" data-id="${f.id}">Recuperar</button>
+          <button class="af-btn hist-eliminar" data-id="${f.id}">Eliminar</button>
+        </div>
+      `).join('')}
+    </div>`;
+
+  $$('.hist-restaurar').forEach((b) => b.addEventListener('click', async () => {
+    try {
+      await almacen.restaurar(b.dataset.id);
+      await pintarBasurero();
+      await avisoVersion();
+    } catch (err) {
+      alert(`No se pudo recuperar.\n\n${err.message}`);
+    }
+  }));
+
+  $$('.hist-eliminar').forEach((b) => b.addEventListener('click', async () => {
+    const f = await almacen.obtener(b.dataset.id);
+    if (!f) return;
+    if (!confirm(`¿Eliminar ${f.codigo} V${f.version} PARA SIEMPRE?\n\n`
+      + `Esto sí borra el registro de la base y no se puede deshacer.`)) return;
+    try {
+      await almacen.eliminarDefinitivo(b.dataset.id);
+      await pintarBasurero();
+    } catch (err) {
+      alert(`No se pudo eliminar.\n\n${err.message}`);
+    }
+  }));
+}
+
+/** Alterna entre el menú del historial y el basurero. */
+function alternarBasurero() {
+  verBasurero = !verBasurero;
+  $('#btn-basurero').textContent = verBasurero ? 'Ver historial' : 'Basurero';
+  $('#btn-basurero').classList.toggle('af-btn-activo', verBasurero);
+  $('#hist-buscar').disabled = verBasurero;
+  if (verBasurero) pintarBasurero();
+  else pintarHistorial();
+}
+
+$('#btn-basurero').addEventListener('click', alternarBasurero);

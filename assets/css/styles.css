@@ -970,3 +970,19 @@ html, body {
    renglon: es una accion destructiva, no debe competir con "Abrir". */
 .hist-borrar { opacity: .45; transition: opacity .12s, background .12s, color .12s; }
 .hist-fila:hover .hist-borrar { opacity: 1; }
+
+/* ---------- Basurero ---------- */
+.af-btn-activo { border-color: var(--af-blue); color: var(--af-blue); background: var(--af-blue-pale); }
+.hist-buscador .af-btn-ghost { flex: 0 0 auto; padding: 8px 16px; font-size: 12.5px; }
+.hist-fila-basura { background: #fbfbfc; }
+.hist-fila-basura .hist-fecha { color: var(--af-ink-soft); }
+.hist-restaurar { flex: 0 0 auto; padding: 6px 14px; font-size: 12px; }
+.hist-eliminar {
+  flex: 0 0 auto;
+  padding: 6px 14px;
+  font-size: 12px;
+  background: #fdeaea;
+  color: #8a2a2a;
+  border: 1.5px solid #e8b4b4;
+}
+.hist-eliminar:hover { background: #f8d7d7; }
