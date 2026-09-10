@@ -38,11 +38,12 @@ const ESPESOR_MICROCORRUGADO = {
 };
 
 // Multiplicador de capas apiladas en la zona de pegue, por tipo de pegue.
+// Debe coincidir con las celdas B10:B13 de "Espesores_carton_pegues.xlsx".
 const CAPAS_POR_PEGUE = {
   charola: { label: 'Charola', capas: 1 },
   lineal: { label: 'Pegue lineal', capas: 3 },
   fondo_automatico: { label: 'Fondo automático', capas: 4 },
-  cuatro_esquinas: { label: '4 esquinas', capas: 7 },
+  cuatro_esquinas: { label: '4 esquinas', capas: 4 },
 };
 
 // De "Proveedores_Lozano.xlsx" — gramaje (g/m2) de cartón sólido por

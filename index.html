@@ -115,16 +115,16 @@
             <option value="charola">Charola (1 capa)</option>
             <option value="lineal">Pegue lineal (3 capas)</option>
             <option value="fondo_automatico">Fondo automático (4 capas)</option>
-            <option value="cuatro_esquinas">4 esquinas (7 capas)</option>
+            <option value="cuatro_esquinas">4 esquinas (4 capas)</option>
           </select>
         </div>
 
         <div class="af-note">
-          <b>Cómo se calcula:</b> la caja va doblada, no armada.
-          <br><b>Medida horizontal = panel largo + panel ancho</b> (igual en todos los pegues).
-          <br><b>Medida vertical:</b> parte del alto TOTAL de la lámina, no del alto interno de la caja, porque las solapas siguen sueltas en el plano y ocupan espacio.
-          En <b>lineal</b> y <b>charola</b> es la lámina completa. En <b>fondo automático</b> es la lámina menos ¾ del ancho de la caja (las aletas del fondo se pliegan hacia dentro).
-          <b>4 esquinas</b> está provisional igual que lineal, pendiente de confirmar.
+          <b>Cómo se calcula la caja doblada</b> (cada pegue dobla distinto):
+          <br>• <b>Lineal</b> y <b>charola</b>: horizontal = largo + ancho · vertical = lámina completa
+          <br>• <b>Fondo automático</b>: horizontal = largo + ancho · vertical = lámina − ¾ del ancho <i>(las aletas del fondo se pliegan hacia dentro)</i>
+          <br>• <b>4 esquinas</b>: horizontal = largo · vertical = ancho <i>(se dobla sobre sí misma; no usa la lámina)</i>
+          <br>Los que parten de la lámina usan su alto TOTAL, no el alto interno de la caja, porque las solapas siguen sueltas en el plano y ocupan espacio.
           <br>Las piezas se apilan hasta llenar el corrugado formando una "posteta", y las postetas se acomodan por camas.
         </div>
 

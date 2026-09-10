@@ -31,47 +31,64 @@
  *    del ancho, porque el pegue sale de una ceja y el resto se pliega
  *    sobre sí mismo). Es geometría del plegado de los paneles laterales,
  *    no depende del tipo de pegue.
- *  - Alto doblado (medida vertical): parte del ALTO TOTAL DE LA LÁMINA,
- *    NO del alto interno de la caja armada, porque en la caja doblada
- *    las solapas siguen sueltas en el plano y ocupan espacio. Cada
- *    pegue tiene su propia fórmula (ver ALTO_DOBLADO abajo).
+ *  - Cada pegue define sus DOS medidas dobladas (ver MEDIDA_DOBLADA
+ *    abajo). Los que parten de la lámina usan el ALTO TOTAL DE LA
+ *    LÁMINA y no el alto interno de la caja, porque en la caja doblada
+ *    las solapas siguen sueltas en el plano y ocupan espacio.
  */
 
 /**
- * Medida vertical de la caja doblada, por tipo de pegue.
+ * Medida de la caja doblada (horizontal y vertical), por tipo de pegue.
+ * Cada pegue dobla distinto, así que cada uno define SUS DOS medidas.
  *
- * OJO: para fondo automático es una RESTA de 3/4 del ANCHO de la caja,
- * no una multiplicación de la lámina. Las aletas del fondo crash-lock
- * se pliegan hacia dentro y su tamaño sale del ancho, no del alto.
- * (Antes estaba como lámina x 0.75, que para el troquel de ejemplo caía
- * ~7 mm cerca por coincidencia: 317.05 x 0.75 = 237.79 contra el
- * correcto 317.05 - 0.75 x 115 = 230.80.)
+ * Dos cosas que no son obvias:
+ *
+ *  - En fondo automático la vertical es una RESTA de 3/4 del ANCHO de la
+ *    caja, no una multiplicación de la lámina: las aletas del fondo
+ *    crash-lock se pliegan hacia dentro y su tamaño sale del ancho.
+ *    (Antes estaba como lámina x 0.75, que en el troquel de ejemplo caía
+ *    ~7 mm cerca por coincidencia: 237.79 contra el correcto 230.80.)
+ *
+ *  - 4 esquinas NO usa la lámina para nada: se dobla sobre sí misma y
+ *    queda del tamaño de la caja interna (horizontal = largo,
+ *    vertical = ancho).
  */
-const ALTO_DOBLADO = {
+const MEDIDA_DOBLADA = {
   // Costura recta de lado: las solapas de arriba y abajo quedan
-  // extendidas, así que ocupa la lámina completa.
-  lineal: ({ laminaAlto }) => laminaAlto,
+  // extendidas, así que la vertical es la lámina completa.
+  lineal: ({ largo, ancho, laminaAlto }) => ({
+    largoDoblado: largo + ancho,
+    altoDoblado: laminaAlto,
+  }),
   // Va extendida, no hay reducción por plegado.
-  charola: ({ laminaAlto }) => laminaAlto,
+  charola: ({ largo, ancho, laminaAlto }) => ({
+    largoDoblado: largo + ancho,
+    altoDoblado: laminaAlto,
+  }),
   // Lámina completa menos 3/4 del ancho de la caja.
-  fondo_automatico: ({ laminaAlto, ancho }) => laminaAlto - 0.75 * ancho,
-  // PENDIENTE de confirmar: por ahora se trata igual que lineal.
-  cuatro_esquinas: ({ laminaAlto }) => laminaAlto,
+  fondo_automatico: ({ largo, ancho, laminaAlto }) => ({
+    largoDoblado: largo + ancho,
+    altoDoblado: laminaAlto - 0.75 * ancho,
+  }),
+  // Queda del tamaño de la caja interna; no interviene la lámina.
+  cuatro_esquinas: ({ largo, ancho }) => ({
+    largoDoblado: largo,
+    altoDoblado: ancho,
+  }),
 };
 
 function medidaDoblada({ largo, ancho, laminaAlto, pegue }) {
-  const formula = ALTO_DOBLADO[pegue];
-  if (!formula || !laminaAlto || !largo || !ancho) return null;
+  const formula = MEDIDA_DOBLADA[pegue];
+  if (!formula || !largo || !ancho) return null;
+  // Solo los pegues que usan la lámina exigen su alto.
+  if (pegue !== 'cuatro_esquinas' && !laminaAlto) return null;
 
-  const altoDoblado = formula({ laminaAlto, largo, ancho });
+  const medida = formula({ largo, ancho, laminaAlto });
   // La resta del fondo automático puede quedar en cero o negativa si el
   // ancho es grande frente a la lámina; ahí no hay medida válida.
-  if (!(altoDoblado > 0)) return null;
+  if (!(medida.largoDoblado > 0) || !(medida.altoDoblado > 0)) return null;
 
-  return {
-    largoDoblado: largo + ancho,
-    altoDoblado,
-  };
+  return medida;
 }
 
 /** Grosor de una pieza doblada (en el punto más grueso, zona de pegue). */
