@@ -720,3 +720,46 @@ html, body {
   .af-header { height: auto; padding: 12px 18px; flex-wrap: wrap; gap: 10px; }
   .af-header-acciones { flex-wrap: wrap; }
 }
+
+/* ---------- Corrugados donde no cabe ---------- */
+.corr-nocabe {
+  margin-top: 14px;
+  border: 1px dashed var(--af-border);
+  border-radius: 10px;
+  padding: 10px 14px 12px;
+  background: #fbfcfd;
+}
+.corr-nocabe-tit {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .4px;
+  color: var(--af-ink-soft);
+  margin-bottom: 6px;
+}
+.corr-nocabe-fila {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--af-ink-soft);
+  padding: 4px 0;
+  border-top: 1px solid var(--af-border);
+}
+.corr-nocabe-fila:first-of-type { border-top: none; }
+.corr-nocabe-id { font-weight: 700; color: #8a5a2a; flex: 0 0 auto; }
+.corr-nocabe-dims { flex: 0 0 auto; font-variant-numeric: tabular-nums; }
+.corr-nocabe-motivo { flex: 1 1 240px; min-width: 0; }
+
+/* ---------- Origen del historial ---------- */
+.hist-fuente {
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 12px;
+  line-height: 1.5;
+  margin-bottom: 12px;
+  border: 1px solid transparent;
+}
+.hist-fuente-ok { background: #e6f2ec; border-color: #a8d5bf; color: #14603a; }
+.hist-fuente-local { background: #fff7e8; border-color: #f0d69a; color: #7a5a06; }

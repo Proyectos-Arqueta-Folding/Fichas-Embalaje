@@ -73,8 +73,114 @@ const almacenLocal = {
   },
 };
 
-// Adaptador activo. Cambiar aquí para migrar a Supabase.
+/**
+ * Adaptador contra Supabase (PostgREST por fetch, sin SDK ni CDN).
+ *
+ * Es de SOLO AGREGAR: no expone borrar, porque las políticas de la base
+ * tampoco lo permiten. Un historial del que cualquiera con la llave
+ * pública pudiera borrar versiones no serviría como historial.
+ */
+const almacenSupabase = {
+  nombre: 'Supabase (compartido)',
+  compartido: true,
+  puedeBorrar: false,
+
+  get base() {
+    return `${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.tabla}`;
+  },
+
+  get cabeceras() {
+    return {
+      apikey: SUPABASE_CONFIG.llavePublicable,
+      Authorization: `Bearer ${SUPABASE_CONFIG.llavePublicable}`,
+      'Content-Type': 'application/json',
+    };
+  },
+
+  // La base usa snake_case; la app camelCase.
+  aFila(f) {
+    return {
+      id: f.id,
+      codigo: f.codigo,
+      version: f.version,
+      guardada_en: f.guardadaEn,
+      cliente: f.cliente,
+      articulo: f.articulo,
+      realizado: f.realizado,
+      entrada: f.entrada,
+      seleccion: f.seleccion,
+      resumen: f.resumen,
+    };
+  },
+
+  deFila(r) {
+    return {
+      id: r.id,
+      codigo: r.codigo,
+      version: r.version,
+      guardadaEn: r.guardada_en,
+      cliente: r.cliente,
+      articulo: r.articulo,
+      realizado: r.realizado,
+      entrada: r.entrada,
+      seleccion: r.seleccion,
+      resumen: r.resumen,
+    };
+  },
+
+  async listar() {
+    const res = await fetch(`${this.base}?select=*&order=guardada_en.desc`, { headers: this.cabeceras });
+    if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
+    return (await res.json()).map(this.deFila);
+  },
+
+  async guardar(ficha) {
+    const res = await fetch(this.base, {
+      method: 'POST',
+      headers: { ...this.cabeceras, Prefer: 'return=representation' },
+      body: JSON.stringify(this.aFila(ficha)),
+    });
+    if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
+    const [fila] = await res.json();
+    return this.deFila(fila);
+  },
+
+  async obtener(id) {
+    const res = await fetch(`${this.base}?id=eq.${encodeURIComponent(id)}&select=*`, { headers: this.cabeceras });
+    if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
+    const filas = await res.json();
+    return filas.length ? this.deFila(filas[0]) : null;
+  },
+
+  async borrar() {
+    throw new Error('El historial compartido es de solo agregar: no se pueden borrar versiones.');
+  },
+};
+
+// Adaptador activo. Arranca en local y se cambia a Supabase si la base
+// responde (ver elegirAlmacen).
 let almacen = almacenLocal;
+
+/**
+ * Escoge dónde guardar. Se prefiere Supabase, porque es lo único que
+ * comparte el historial entre las 20 personas; si no responde —no hay
+ * red, falta crear la tabla, o el entorno bloquea la petición, como el
+ * sandbox del Artifact— se sigue con localStorage en vez de dejar la
+ * app sin historial. La UI dice cuál está en uso.
+ */
+async function elegirAlmacen() {
+  if (typeof SUPABASE_CONFIG === 'undefined' || !SUPABASE_CONFIG.url) {
+    return { almacen: almacenLocal, motivo: 'no hay configuración de Supabase' };
+  }
+  try {
+    await almacenSupabase.listar();
+    almacen = almacenSupabase;
+    return { almacen: almacenSupabase, motivo: null };
+  } catch (err) {
+    almacen = almacenLocal;
+    return { almacen: almacenLocal, motivo: err.message };
+  }
+}
 
 function idFicha() {
   return `f${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;

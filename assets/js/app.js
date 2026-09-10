@@ -333,6 +333,30 @@ function renderListaCorrugados() {
         </div>
       </div>
       <div class="corr-list">${filas}</div>
+      ${noCabenHTML(state.resultado.sinAcomodo)}
+    </div>
+  `;
+}
+
+/**
+ * Los corrugados donde NO cabe la caja, al final de la lista y con el
+ * motivo. Antes simplemente no aparecían, y no quedaba claro si es que
+ * el catálogo solo tenía esos o si los demás se habían descartado.
+ */
+function noCabenHTML(sinAcomodo) {
+  if (!sinAcomodo || !sinAcomodo.length) return '';
+  return `
+    <div class="corr-nocabe">
+      <div class="corr-nocabe-tit">
+        No cabe en ${sinAcomodo.length === 1 ? 'este corrugado' : `estos ${sinAcomodo.length} corrugados`}
+      </div>
+      ${sinAcomodo.map((s) => `
+        <div class="corr-nocabe-fila">
+          <span class="corr-nocabe-id">${s.corrugado.id}</span>
+          <span class="corr-nocabe-dims">${s.corrugado.largo} × ${s.corrugado.ancho} × ${s.corrugado.alto} mm</span>
+          <span class="corr-nocabe-motivo">No cabe: ${s.motivo}.</span>
+        </div>
+      `).join('')}
     </div>
   `;
 }
@@ -378,11 +402,12 @@ function render({ scrollToScene = false } = {}) {
   const container = $('#preview-container');
 
   if (state.resultado.error) {
+    const { sinAcomodo, largoDobladoMm: ld, altoDobladoMm: ad } = state.resultado;
     container.innerHTML = `
       <div class="af-card">
-        <div class="af-empty-state">
-          <div style="color:#c0392b; font-weight:600;">${state.resultado.error}</div>
-        </div>
+        <div style="color:#c0392b; font-weight:600; margin-bottom:6px;">${state.resultado.error}</div>
+        ${ld ? `<p class="af-card-hint">Caja doblada: <b>${fmt(ld)} × ${fmt(ad)} mm</b>.</p>` : ''}
+        ${noCabenHTML(sinAcomodo)}
       </div>`;
     return;
   }
@@ -714,19 +739,43 @@ if (cajaLogo) cajaLogo.innerHTML = logoAppHTML(42);
 // Historial de fichas
 // ---------------------------------------------------------------------
 
+/** Barra que dice dónde se está guardando y avisa si es solo local. */
+function fuenteHistorialHTML() {
+  if (almacen.compartido) {
+    return `<div class="hist-fuente hist-fuente-ok">
+      Historial <b>compartido</b> en ${almacen.nombre} — lo que guardes aquí lo ven todos.
+      Las versiones no se pueden borrar desde la app.
+    </div>`;
+  }
+  return `<div class="hist-fuente hist-fuente-local">
+      Historial guardado <b>solo en ${almacen.nombre}</b>${estadoAlmacen.motivo
+        ? ` (no se pudo conectar a Supabase: ${estadoAlmacen.motivo})`
+        : ''}.
+      Lo que guardes aquí <b>no lo ven los demás</b> y se pierde si se limpian los datos del navegador.
+    </div>`;
+}
+
 /** Dibuja la lista de fichas guardadas, agrupada por código. */
 async function pintarHistorial() {
   const caja = $('#historial-lista');
   if (!caja) return;
 
-  const grupos = await historialAgrupado();
+  let grupos;
+  try {
+    grupos = await historialAgrupado();
+  } catch (err) {
+    caja.innerHTML = `<div class="ocr-estado ocr-aviso">No se pudo leer el historial: ${err.message}</div>`;
+    return;
+  }
+
   if (!grupos.length) {
-    caja.innerHTML = `<div class="hist-vacio">Todavía no hay fichas guardadas.
+    caja.innerHTML = fuenteHistorialHTML()
+      + `<div class="hist-vacio">Todavía no hay fichas guardadas.
       Calcula una y presiona <b>Guardar en el historial</b>.</div>`;
     return;
   }
 
-  caja.innerHTML = grupos.map((g) => `
+  caja.innerHTML = fuenteHistorialHTML() + grupos.map((g) => `
     <div class="hist-grupo">
       <div class="hist-codigo">
         ${g.codigo}
@@ -744,7 +793,8 @@ async function pintarHistorial() {
             </div>
           </div>
           <button class="af-btn af-btn-ghost hist-abrir" data-id="${f.id}">Abrir</button>
-          <button class="hist-borrar" data-id="${f.id}" title="Borrar esta versión">✕</button>
+          ${almacen.puedeBorrar === false ? ''
+            : `<button class="hist-borrar" data-id="${f.id}" title="Borrar esta versión">✕</button>`}
         </div>
       `).join('')}
     </div>
@@ -843,4 +893,10 @@ $('#btn-historial').addEventListener('click', () => {
   $('#btn-historial').textContent = abierto ? 'Ocultar historial' : 'Ver historial';
 });
 
-pintarHistorial();
+// Se prefiere Supabase (historial compartido) y se cae a localStorage si
+// no responde, para que la app nunca se quede sin historial.
+let estadoAlmacen = { almacen: almacenLocal, motivo: null };
+elegirAlmacen().then((r) => {
+  estadoAlmacen = r;
+  if (!$('#historial-panel').hasAttribute('hidden')) pintarHistorial();
+});

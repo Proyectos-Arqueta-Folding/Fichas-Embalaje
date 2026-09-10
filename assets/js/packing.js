@@ -380,7 +380,7 @@ function calcularMejorEmpaque({ largo, ancho, laminaAlto, tipoCarton, calibre, p
   const grosorPieza = grosorPiezaMm({ tipo: tipoCarton, calibre, pegue });
   if (!grosorPieza) return { error: 'Calibre o tipo de pegue inválido.' };
 
-  const porCorrugado = CORRUGADOS.map((corrugado) => {
+  const evaluados = CORRUGADOS.map((corrugado) => {
     const r = evaluarCorrugado(corrugado, doblada, grosorPieza, tipoCarton);
     return {
       corrugado,
@@ -388,12 +388,30 @@ function calcularMejorEmpaque({ largo, ancho, laminaAlto, tipoCarton, calibre, p
       piezasPorPosteta: r.piezasPorPosteta,
       tamanos: r.tamanos,
     };
-  }).filter((r) => r.opciones.length > 0);
+  });
+
+  const porCorrugado = evaluados.filter((r) => r.opciones.length > 0);
+
+  // Los corrugados donde NO cabe no se tiran: se reportan aparte con el
+  // motivo, para que en la lista se vea cuáles se descartaron y por qué
+  // en vez de que simplemente desaparezcan.
+  const sinAcomodo = evaluados
+    .filter((r) => r.opciones.length === 0)
+    .map((r) => ({
+      corrugado: r.corrugado,
+      motivo: motivoNoCabe(r.corrugado, doblada, grosorPieza),
+    }));
 
   if (porCorrugado.length === 0) {
+    // Aun sin solución hay que decir CUÁLES no cabieron y por qué: es la
+    // única pista para saber si falta un corrugado más grande en el
+    // catálogo o si el problema es el calibre/pegue.
     return {
       error: 'La caja doblada no cabe en ningún corrugado del catálogo con este calibre/pegue '
         + `(ni con postetas de ${POSTETA_MIN} piezas, el grupo más chico).`,
+      sinAcomodo,
+      largoDobladoMm: doblada.largoDoblado,
+      altoDobladoMm: doblada.altoDoblado,
     };
   }
 
@@ -414,9 +432,41 @@ function calcularMejorEmpaque({ largo, ancho, laminaAlto, tipoCarton, calibre, p
     largoDobladoMm: doblada.largoDoblado,
     altoDobladoMm: doblada.altoDoblado,
     porCorrugado,
+    sinAcomodo,
     corrugadoId: mejor.corrugado.id,
     acomodoIndex: 0,
   };
+}
+
+/**
+ * Por qué no cabe la caja doblada en un corrugado. Se distinguen dos
+ * casos, porque la salida es distinta:
+ *
+ *  - La hoja doblada no entra ni acostada ni parada en ninguna de las 3
+ *    caras: el corrugado es chico para esta caja y no hay nada que
+ *    hacer con este pegue/calibre.
+ *  - La hoja sí entra, pero no alcanza el espacio ni para UNA posteta
+ *    completa del grupo más chico permitido: cabría si se aceptaran
+ *    postetas más chicas, que es una regla del proceso, no geometría.
+ */
+function motivoNoCabe(corrugado, doblada, grosorPieza) {
+  const { largoDoblado, altoDoblado } = doblada;
+  const { largo, ancho, alto } = corrugado;
+
+  // ¿Entra la hoja en alguna de las 3 caras, en cualquiera de sus 2 giros?
+  const caras = [[largo, ancho], [ancho, alto], [largo, alto]];
+  const entraLaHoja = caras.some(([a, b]) => (
+    (largoDoblado <= a && altoDoblado <= b) || (largoDoblado <= b && altoDoblado <= a)
+  ));
+
+  if (!entraLaHoja) {
+    return `la caja doblada mide ${Math.round(largoDoblado)} × ${Math.round(altoDoblado)} mm `
+      + `y no entra en ninguna cara de ${largo} × ${ancho} × ${alto} mm`;
+  }
+
+  const minima = POSTETA_MIN * grosorPieza;
+  return `la hoja sí entra, pero no alcanza el espacio ni para una posteta completa `
+    + `de ${POSTETA_MIN} piezas (${minima.toFixed(1)} mm de pila, el grupo más chico permitido)`;
 }
 
 /**
