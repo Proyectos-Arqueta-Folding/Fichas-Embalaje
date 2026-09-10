@@ -700,9 +700,11 @@ function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas
       ${pesos ? `
       <tr>
         <td class="pf-label">Peso Tarima:</td>
-        <td colspan="3"><b>${fmtPf(pesos.tarimaTotalKg)} kg</b> = ${fmtPf(pesos.tarimaVaciaKg)} vacía + ${totalMostrado} × ${fmtPf(pesos.brutoCorrugadoKg)} kg</td>
+        <td><b>${fmtPf(pesos.tarimaTotalKg)} kg</b></td>
         <td class="pf-label">Máx. por caja:</td>
         <td>${pesos.limiteCorrugadoKg} kg${pesos.excedeLimite ? ' <b style="color:#c0392b;">EXCEDIDO</b>' : ' ✓'}</td>
+        <td class="pf-label">Piezas por tarima:</td>
+        <td>${(totalMostrado * estrategia.total).toLocaleString('es-MX')} pzas.</td>
       </tr>` : ''}
     </table>
 
