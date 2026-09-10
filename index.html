@@ -15,12 +15,22 @@
       <div class="title">Fichas de Embalaje</div>
     </div>
   </div>
-  <div class="af-header-tag" id="af-header-tag">Ejemplo precargado — cambia los datos y recalcula</div>
+  <div class="af-header-acciones">
+    <button type="button" class="af-btn-hist" id="btn-historial">Ver historial</button>
+    <div class="af-header-tag" id="af-header-tag">Ejemplo precargado — cambia los datos y recalcula</div>
+  </div>
 </header>
 
 <main class="af-shell">
   <h1 class="af-page-title">Nueva ficha de embalaje</h1>
   <p class="af-page-sub">Captura las dimensiones de la caja, el calibre y el tipo de pegue. El sistema calcula qué corrugado del catálogo entrega más piezas.</p>
+
+  <div class="af-card" id="historial-panel" hidden>
+    <h2>Historial de fichas</h2>
+    <p class="af-card-hint">Cada vez que guardas se crea una versión nueva (V1, V2, V3…) bajo el mismo código de producto. Las versiones anteriores nunca se sobrescriben.</p>
+    <div id="historial-aviso"></div>
+    <div id="historial-lista"></div>
+  </div>
 
   <div class="af-grid">
     <!-- ====================== FORM ====================== -->
@@ -153,6 +163,7 @@
 <script src="assets/js/packing.js"></script>
 <script src="assets/js/box3d.js"></script>
 <script src="assets/js/ocr.js"></script>
+<script src="assets/js/historial.js"></script>
 <script src="assets/js/fichaPrint.js"></script>
 <script src="assets/js/app.js"></script>
 </body>

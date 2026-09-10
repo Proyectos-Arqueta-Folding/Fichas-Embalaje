@@ -528,7 +528,9 @@ function render({ scrollToScene = false } = {}) {
     <div class="af-card">
       <div class="af-actions">
         <button class="af-btn af-btn-primary" id="btn-pdf">Exportar PDF (ficha de embalaje)</button>
+        <button class="af-btn af-btn-ghost" id="btn-guardar">Guardar en el historial</button>
       </div>
+      <div id="guardar-estado"></div>
     </div>
   `;
 
@@ -542,6 +544,46 @@ function render({ scrollToScene = false } = {}) {
       grosorPiezaMm, largoDobladoMm, altoDobladoMm, alturaElegida,
     });
     imprimirFicha();
+  });
+
+  $('#btn-guardar').addEventListener('click', async () => {
+    const btn = $('#btn-guardar');
+    btn.disabled = true;
+    try {
+      const ficha = await guardarFichaActual({
+        input,
+        seleccion: {
+          corrugadoId: corrugado.id,
+          piezasPorPosteta: estrategia.piezasPorPosteta,
+          acomodoIndex: state.acomodoIndex || 0,
+          alturaExtendida: usarExtendida,
+        },
+        // Foto de los números tal como quedaron hoy.
+        resumen: {
+          piezasPorCorrugado: estrategia.total,
+          corrugadosPorTarima: totalMostrado,
+          piezasPorTarima: totalMostrado * estrategia.total,
+          camas: estrategia.camas.length,
+          postetasPorCama: estrategia.camas.map((c) => c.postetasPorCama),
+          alturaBultoMm: alturaElegida.totalMm,
+          excesoAlturaMm: alturaElegida.excesoMm,
+          pesoBrutoCorrugadoKg: pesos ? pesos.brutoCorrugadoKg : null,
+          pesoTarimaKg: pesos ? pesos.tarimaTotalKg : null,
+        },
+      });
+      $('#guardar-estado').innerHTML = `
+        <div class="ocr-estado ocr-listo" style="margin-top:10px;">
+          Guardada como <b>${ficha.codigo} V${ficha.version}</b>. Aparece abajo en el historial.
+        </div>`;
+      await pintarHistorial();
+    } catch (err) {
+      $('#guardar-estado').innerHTML = `
+        <div class="ocr-estado ocr-aviso" style="margin-top:10px;">
+          No se pudo guardar (${err.message}).
+        </div>`;
+    } finally {
+      btn.disabled = false;
+    }
   });
 
   $$('.corr-row').forEach((btn) => {
@@ -667,3 +709,138 @@ $('#btn-nueva').addEventListener('click', () => {
 // Logo de la barra superior (variante clara, porque el fondo es azul marino).
 const cajaLogo = $('#af-logo');
 if (cajaLogo) cajaLogo.innerHTML = logoAppHTML(42);
+
+// ---------------------------------------------------------------------
+// Historial de fichas
+// ---------------------------------------------------------------------
+
+/** Dibuja la lista de fichas guardadas, agrupada por código. */
+async function pintarHistorial() {
+  const caja = $('#historial-lista');
+  if (!caja) return;
+
+  const grupos = await historialAgrupado();
+  if (!grupos.length) {
+    caja.innerHTML = `<div class="hist-vacio">Todavía no hay fichas guardadas.
+      Calcula una y presiona <b>Guardar en el historial</b>.</div>`;
+    return;
+  }
+
+  caja.innerHTML = grupos.map((g) => `
+    <div class="hist-grupo">
+      <div class="hist-codigo">
+        ${g.codigo}
+        <span class="hist-cuenta">${g.versiones.length} ${g.versiones.length === 1 ? 'versión' : 'versiones'}</span>
+      </div>
+      ${g.versiones.map((f) => `
+        <div class="hist-fila">
+          <span class="hist-ver">V${f.version}</span>
+          <div class="hist-datos">
+            <div class="hist-titulo">${f.articulo || '—'} · ${f.cliente || '—'}</div>
+            <div class="hist-meta">
+              ${fechaCorta(f.guardadaEn)}${f.realizado ? ` · ${f.realizado}` : ''}
+              · ${f.seleccion.corrugadoId} · posteta de ${f.seleccion.piezasPorPosteta}
+              · ${f.resumen.piezasPorTarima} pzs/tarima
+            </div>
+          </div>
+          <button class="af-btn af-btn-ghost hist-abrir" data-id="${f.id}">Abrir</button>
+          <button class="hist-borrar" data-id="${f.id}" title="Borrar esta versión">✕</button>
+        </div>
+      `).join('')}
+    </div>
+  `).join('');
+
+  $$('.hist-abrir').forEach((b) => b.addEventListener('click', () => abrirFicha(b.dataset.id)));
+  $$('.hist-borrar').forEach((b) => b.addEventListener('click', async () => {
+    const f = await almacen.obtener(b.dataset.id);
+    if (!f) return;
+    if (!confirm(`¿Borrar ${f.codigo} V${f.version}? No se puede deshacer.`)) return;
+    await almacen.borrar(b.dataset.id);
+    await pintarHistorial();
+  }));
+}
+
+/**
+ * Abre una ficha guardada: rellena el formulario, recalcula y restaura
+ * la selección manual (corrugado, posteta, acomodo, altura extendida).
+ *
+ * Se RECALCULA en vez de mostrar el resumen guardado, para que la ficha
+ * vieja se pueda seguir editando. Si algún número cambió respecto de lo
+ * que se guardó, se avisa: casi siempre significa que se corrigió una
+ * fórmula despues de haber mandado esa ficha a producción.
+ */
+async function abrirFicha(id) {
+  const f = await almacen.obtener(id);
+  if (!f) return;
+
+  const e = f.entrada;
+  $('#cliente').value = e.cliente || '';
+  $('#articulo').value = e.articulo || '';
+  $('#codigo').value = e.codigo || '';
+  $('#realizado').value = e.realizado || '';
+  $('#largo').value = e.largo;
+  $('#ancho').value = e.ancho;
+  $('#alto').value = e.alto;
+  $('#laminaAncho').value = e.laminaAncho ?? '';
+  $('#laminaAlto').value = e.laminaAlto ?? '';
+  tipoCartonSelect.value = e.tipoCarton;
+  poblarCalibres();
+  calibreSelect.value = e.calibre;
+  materialSelect.value = e.material;
+  $('#pegue').value = e.pegue;
+
+  const resultado = calcularMejorEmpaque(e);
+  if (resultado.error) {
+    state = { input: e, resultado };
+    render();
+    return;
+  }
+
+  // Restaurar la selección que traía guardada, si sigue existiendo.
+  const entry = resultado.porCorrugado.find((p) => p.corrugado.id === f.seleccion.corrugadoId);
+  state = {
+    input: e,
+    resultado,
+    pesoPiezaG: calcularPesoPiezaG(e),
+    corrugadoId: entry ? f.seleccion.corrugadoId : resultado.corrugadoId,
+    acomodoIndex: f.seleccion.acomodoIndex || 0,
+    piezasPorPosteta: entry && entry.tamanos.some((t) => t.piezas === f.seleccion.piezasPorPosteta)
+      ? f.seleccion.piezasPorPosteta
+      : null,
+    alturaExtendida: !!f.seleccion.alturaExtendida,
+    abierta: f,
+  };
+  render();
+
+  const sel = currentSelection();
+  const estiba = calcularEstibaEnTarima(sel.corrugado);
+  const ahora = sel.estrategia.total * (state.alturaExtendida ? estiba.totalExtendido : estiba.total);
+  const cambio = ahora !== f.resumen.piezasPorTarima;
+
+  $('#af-header-tag').textContent = `${f.codigo} V${f.version} — guardada el ${fechaCorta(f.guardadaEn)}`;
+  const aviso = $('#historial-aviso');
+  if (aviso) {
+    // La próxima versión NO es siempre `version + 1`: si esta es la V1 y
+    // ya existe una V2, guardar crea la V3.
+    const proxima = await siguienteVersion(f.codigo);
+    aviso.innerHTML = cambio
+      ? `<div class="ocr-estado ocr-aviso">Abriste <b>${f.codigo} V${f.version}</b>.
+          Ojo: hoy el cálculo da <b>${ahora} pzs/tarima</b> y cuando se guardó daba
+          <b>${f.resumen.piezasPorTarima}</b>. Cambió alguna fórmula o el catálogo desde entonces.
+          Si guardas, se crea la V${proxima} con los números de hoy.</div>`
+      : `<div class="ocr-estado ocr-listo">Abriste <b>${f.codigo} V${f.version}</b>.
+          Los números coinciden con los guardados. Si la cambias y guardas, se crea
+          la V${proxima}; la V${f.version} no se toca.</div>`;
+  }
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+$('#btn-historial').addEventListener('click', () => {
+  const panel = $('#historial-panel');
+  const abierto = panel.hasAttribute('hidden');
+  if (abierto) { panel.removeAttribute('hidden'); pintarHistorial(); }
+  else panel.setAttribute('hidden', '');
+  $('#btn-historial').textContent = abierto ? 'Ocultar historial' : 'Ver historial';
+});
+
+pintarHistorial();
