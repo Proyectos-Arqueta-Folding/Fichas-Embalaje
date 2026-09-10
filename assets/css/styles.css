@@ -372,8 +372,8 @@ html, body {
    cada columna da ~130 mm de ancho util. Se limita el ALTO para que la
    ficha siga cabiendo en una sola pagina (el SVG se ajusta solo, porque
    su viewBox va calculado al contenido). */
-.pf-svg { display: block; width: 100%; height: auto; max-height: 82mm; margin: 0 auto; }
-.pf-svg-posteta { display: block; width: 100%; height: auto; max-height: 34mm; margin: 0 auto; }
+.pf-svg { display: block; width: 100%; height: auto; max-height: 78mm; margin: 0 auto; }
+.pf-svg-posteta { display: block; width: 100%; height: auto; max-height: 29mm; margin: 0 auto; }
 
 .pf-dim { font-size: 8.5px; font-weight: 700; fill: #8a5a2a; font-family: Arial, sans-serif; }
 .pf-dim-small { font-size: 7px; fill: #8a5a2a; font-family: Arial, sans-serif; }
@@ -416,6 +416,12 @@ html, body {
 .pf-posteta-datos td:last-child { text-align: right; }
 .pf-posteta-datos tr:last-child td { border-bottom: none; }
 
+/* Detalle de la posteta: mas ancho que las tarjetas de cama, porque hay
+   que contar hasta 30 cajas separadas. */
+.pf-posteta-det { flex-grow: 1.9; max-width: 300px; }
+.pf-svg-detalle { display: block; width: 100%; height: auto; max-height: 27mm; margin: 1px auto 0; }
+.pf-posteta-pie { font-size: 5.5px; line-height: 1.25; color: #666; margin-top: 1px; }
+
 
 .pf-data {
   width: 100%;
@@ -428,7 +434,7 @@ html, body {
 .pf-data td { border: 1px solid #000; padding: 3px 7px; }
 .pf-data .pf-label { font-weight: 700; background: #f2f2f2; width: 14%; }
 
-.pf-footer { font-size: 9px; margin-top: 4px; font-family: Arial, sans-serif; color: #333; }
+.pf-footer { font-size: 8px; line-height: 1.3; margin-top: 3px; font-family: Arial, sans-serif; color: #333; }
 
 /* ---------- 3D scene ---------- */
 .scene3d-wrap { position: relative; }

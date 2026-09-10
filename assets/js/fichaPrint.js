@@ -9,9 +9,13 @@
  *
  *   1. El corrugado con TODAS sus postetas dentro, para ver cómo entran
  *      y que ninguna queda volando.
- *   2. Una tarjeta por CAMA con la cama completa: si son 11 postetas se
+ *   2. El detalle de UNA posteta con cada caja dibujada por separado,
+ *      para poder contar cuántas cajas la forman. Un solo dibujo sirve
+ *      para toda la ficha porque el tamaño de posteta es constante en
+ *      la estrategia.
+ *   3. Una tarjeta por CAMA con la cama completa: si son 11 postetas se
  *      dibujan las 11, si son 2 se dibujan las 2.
- *   3. El entarimado: la tarima con los corrugados estibados, con las
+ *   4. El entarimado: la tarima con los corrugados estibados, con las
  *      medidas rotuladas (120 x 120 cm de base y el alto real en cm).
  *
  * Dos decisiones de dibujo, pedidas expresamente por el usuario:
@@ -241,10 +245,20 @@ const PF_CORR_COLORES = [
 const PF_TARIMA = { tapa: '#9db0bd', derecha: '#5f7686', izquierda: '#41576a' };
 const PF_TARIMA_TACON = { tapa: '#8299a8', derecha: '#4e6575', izquierda: '#354a5c' };
 
-/** Cuántas rayas de hoja dibujar sin que se vuelva una manchota. */
-function nHojas(piezas, denso) {
-  if (denso) return 0;
-  return Math.min(9, Math.max(2, piezas - 1));
+/**
+ * Cuántas rayas de separación dibujar dentro de una posteta. Lo ideal es
+ * una por junta (piezas - 1) para que se puedan contar las cajas, pero
+ * con muchas postetas en el mismo dibujo eso se vuelve una manchota, así
+ * que se reparte un presupuesto de líneas entre las postetas del dibujo.
+ * El conteo EXACTO de cajas vive en el panel de detalle de la posteta.
+ */
+const PRESUPUESTO_RAYAS = 260;
+
+function nHojas(piezas, nPostetas) {
+  const juntas = piezas - 1;
+  if (juntas <= 0) return 0;
+  const presupuesto = Math.floor(PRESUPUESTO_RAYAS / Math.max(1, nPostetas));
+  return Math.max(0, Math.min(juntas, presupuesto));
 }
 
 // Separación entre postetas, como fracción del espacio que le toca a
@@ -360,11 +374,12 @@ function svgCorrugadoConPostetas({ corrugado, estrategia, grosorPiezaMm }) {
     esc.add(-1e8 + i, `<polygon points="${polyStr(qs)}" fill="${fondos[i]}" stroke="#b89a68" stroke-width="0.8"/>`);
   });
 
-  const denso = contarPostetas(estrategia) > 150;
+  const totalPostetas = contarPostetas(estrategia);
+  const denso = totalPostetas > 150;
 
   estrategia.camas.forEach((cama, idx) => {
     const colores = PF_CAMA_COLORES[idx % PF_CAMA_COLORES.length];
-    const hojas = nHojas(cama.piezasPorPosteta, denso);
+    const hojas = denso ? 0 : nHojas(cama.piezasPorPosteta, totalPostetas);
     const espesor = espesorPostetaDibujo(cama, grosorPiezaMm, corrugado);
     recorrerPostetas(cama, espesor, ({ pos, size, ejeAp }) => {
       const sep = separarPosteta(pos, size, ejeAp);
@@ -388,7 +403,8 @@ function svgCorrugadoConPostetas({ corrugado, estrategia, grosorPiezaMm }) {
 function svgCamaCompleta(cama, grosorPiezaMm, corrugado, idxCama) {
   const espesor = espesorPostetaDibujo(cama, grosorPiezaMm, corrugado);
   const colores = PF_CAMA_COLORES[idxCama % PF_CAMA_COLORES.length];
-  const hojas = nHojas(cama.piezasPorPosteta, contarPostetas({ camas: [cama] }) > 150);
+  const nPost = contarPostetas({ camas: [cama] });
+  const hojas = nPost > 150 ? 0 : nHojas(cama.piezasPorPosteta, nPost);
 
   // Primero se recolectan las postetas para poder medir la cama y elegir
   // la escala que la deja del tamaño de la tarjeta.
@@ -418,6 +434,56 @@ function svgCamaCompleta(cama, grosorPiezaMm, corrugado, idxCama) {
   });
 
   return esc.render('pf-svg-posteta');
+}
+
+/**
+ * DETALLE DE LA POSTETA: una posteta sola con CADA CAJA dibujada por
+ * separado, para poder contar cuántas cajas la forman.
+ *
+ * Es 100% esquemático a propósito: a escala una caja doblada es una hoja
+ * de menos de un milímetro y 30 de ellas se ven como un bloque liso. Aquí
+ * cada caja es una lámina con su propio espesor y su separación, y el
+ * apilado corre a lo ANCHO del dibujo (el eje X, que en esta proyección
+ * es la dirección con más espacio) para que quepan todas separadas.
+ *
+ * Como el tamaño de posteta es constante en toda la estrategia, un solo
+ * dibujo sirve para todas las camas.
+ */
+function svgPostetaDetalle(piezas, dimA, dimB) {
+  const cara = Math.max(dimA, dimB);
+  // El apilado ocupa ~1.9 veces la cara: da un dibujo alargado, que es la
+  // forma que mejor aprovecha el ancho de la tarjeta.
+  const slot = (cara * 1.9) / Math.max(1, piezas);
+  const grosor = slot * 0.58; // el 42% restante es la separación
+
+  const s = 320 / ((slot * piezas + dimA) * ISO_COS);
+  const esc = crearEscena(s);
+
+  for (let i = 0; i < piezas; i++) {
+    cuboIso(esc, {
+      pos: [i * slot, 0, 0],
+      size: [grosor, dimA, dimB],
+      colores: PF_CAMA_COLORES[0],
+      ejeApilado: 0, // la cara perpendicular al apilado es la tapa
+      hojas: 0,      // cada cuboide YA es una caja: no lleva rayas dentro
+      sw: 0.45,
+    });
+  }
+
+  return esc.render('pf-svg-detalle');
+}
+
+/** Tarjeta del detalle de la posteta. */
+function tarjetaPostetaDetalle(piezas, dimA, dimB) {
+  return `
+    <div class="pf-posteta pf-posteta-det">
+      <div class="pf-posteta-tit" style="border-left:4px solid ${PF_CAMA_COLORES[0].derecha};">
+        1 POSTETA = ${piezas} CAJAS
+      </div>
+      ${svgPostetaDetalle(piezas, dimA, dimB)}
+      <div class="pf-posteta-pie">Cada lámina es una caja doblada. Separación exagerada para poder contarlas.</div>
+    </div>
+  `;
 }
 
 const ORDINAL_CAMA = ['1ra', '2da', '3ra', '4ta', '5ta'];
@@ -604,8 +670,11 @@ function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas
     </div>
 
     <div class="pf-postetas-bloque">
-      <h4>Camas completas — postetas de ${estrategia.piezasPorPosteta} piezas</h4>
-      <div class="pf-postetas">${tarjetas}</div>
+      <h4>Posteta y camas — postetas de ${estrategia.piezasPorPosteta} cajas</h4>
+      <div class="pf-postetas">
+        ${tarjetaPostetaDetalle(estrategia.piezasPorPosteta, largoDobladoMm, altoDobladoMm)}
+        ${tarjetas}
+      </div>
     </div>
 
     <table class="pf-data">
