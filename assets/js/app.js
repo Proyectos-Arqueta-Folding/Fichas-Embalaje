@@ -774,7 +774,7 @@ function fuenteHistorialHTML() {
   if (almacen.compartido) {
     return `<div class="hist-fuente hist-fuente-ok">
       Historial <b>compartido</b> en ${almacen.nombre} — lo que guardes aquí lo ven todos.
-      Las versiones no se pueden borrar desde la app.
+      Puedes borrar versiones; el registro se conserva por si fue un error.
     </div>`;
   }
   return `<div class="hist-fuente hist-fuente-local">
@@ -960,9 +960,20 @@ async function pintarHistorial() {
   $$('.hist-borrar').forEach((b) => b.addEventListener('click', async () => {
     const f = await almacen.obtener(b.dataset.id);
     if (!f) return;
-    if (!confirm(`¿Borrar ${f.codigo} V${f.version}? No se puede deshacer.`)) return;
-    await almacen.borrar(b.dataset.id);
-    await pintarHistorial();
+    const aviso = almacen.borradoRecuperable
+      ? `¿Borrar ${f.codigo} V${f.version}?\n\n`
+        + `Deja de aparecer en el historial, pero el registro se conserva `
+        + `y se puede recuperar desde Supabase si fue por error.\n\n`
+        + `El número V${f.version} vuelve a quedar libre.`
+      : `¿Borrar ${f.codigo} V${f.version}? No se puede deshacer.`;
+    if (!confirm(aviso)) return;
+    try {
+      await almacen.borrar(b.dataset.id);
+      await pintarHistorial();
+      await avisoVersion();
+    } catch (err) {
+      alert(`No se pudo borrar.\n\n${err.message}`);
+    }
   }));
 }
 

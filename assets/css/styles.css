@@ -965,3 +965,8 @@ html, body {
   margin-left: 6px;
   cursor: pointer;
 }
+
+/* El boton de borrar es discreto hasta que se posa el cursor en el
+   renglon: es una accion destructiva, no debe competir con "Abrir". */
+.hist-borrar { opacity: .45; transition: opacity .12s, background .12s, color .12s; }
+.hist-fila:hover .hist-borrar { opacity: 1; }

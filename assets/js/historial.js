@@ -83,7 +83,12 @@ const almacenLocal = {
 const almacenSupabase = {
   nombre: 'Supabase',
   compartido: true,
-  puedeBorrar: false,
+  puedeBorrar: true,
+  // El borrado es SUAVE: marca la ficha y deja de mostrarla, pero el
+  // renglón se queda en la base. Así un borrado por error se recupera, y
+  // con la llave pública lo más que alguien puede hacer es cambiar una
+  // bandera — no alterar medidas ni pesos de una ficha ya firmada.
+  borradoRecuperable: true,
 
   get base() {
     return `${SUPABASE_CONFIG.url}/rest/v1/${SUPABASE_CONFIG.tabla}`;
@@ -131,7 +136,10 @@ const almacenSupabase = {
   async listar() {
     const res = await fetch(`${this.base}?select=*&order=guardada_en.desc`, { headers: this.cabeceras });
     if (!res.ok) throw new Error(`Supabase ${res.status}: ${await res.text()}`);
-    return (await res.json()).map(this.deFila);
+    // El filtro de borradas va aquí y no en la consulta a propósito: así
+    // la app sigue funcionando aunque todavía no se haya corrido el SQL
+    // que agrega la columna (sin columna, `borrada` llega undefined).
+    return (await res.json()).filter((r) => !r.borrada).map(this.deFila);
   },
 
   async guardar(ficha) {
@@ -152,8 +160,21 @@ const almacenSupabase = {
     return filas.length ? this.deFila(filas[0]) : null;
   },
 
-  async borrar() {
-    throw new Error('El historial compartido es de solo agregar: no se pueden borrar versiones.');
+  async borrar(id) {
+    const res = await fetch(`${this.base}?id=eq.${encodeURIComponent(id)}`, {
+      method: 'PATCH',
+      headers: this.cabeceras,
+      body: JSON.stringify({ borrada: true }),
+    });
+    if (!res.ok) {
+      const detalle = await res.text();
+      // El caso más probable: todavía no se corre supabase-borrado.sql.
+      if (/borrada|column|permission|42501|PGRST204/i.test(detalle)) {
+        throw new Error('Falta habilitar el borrado en la base. Corre supabase-borrado.sql '
+          + 'en el SQL Editor de Supabase.');
+      }
+      throw new Error(`Supabase ${res.status}: ${detalle}`);
+    }
   },
 };
 
