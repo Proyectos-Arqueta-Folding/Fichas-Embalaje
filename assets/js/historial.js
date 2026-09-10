@@ -81,7 +81,7 @@ const almacenLocal = {
  * pública pudiera borrar versiones no serviría como historial.
  */
 const almacenSupabase = {
-  nombre: 'Supabase (compartido)',
+  nombre: 'Supabase',
   compartido: true,
   puedeBorrar: false,
 
@@ -201,11 +201,8 @@ async function siguienteVersion(codigo) {
  * `resumen` es la foto de los números, para poder comparar después.
  */
 async function guardarFichaActual({ input, seleccion, resumen }) {
-  const ficha = {
-    id: idFicha(),
+  const base = {
     codigo: (input.codigo || '').trim() || 'SIN-CODIGO',
-    version: await siguienteVersion(input.codigo),
-    guardadaEn: new Date().toISOString(),
     cliente: input.cliente,
     articulo: input.articulo,
     realizado: input.realizado,
@@ -213,8 +210,30 @@ async function guardarFichaActual({ input, seleccion, resumen }) {
     seleccion: { ...seleccion },
     resumen: { ...resumen },
   };
-  await almacen.guardar(ficha);
-  return ficha;
+
+  // Carrera real con 20 personas: dos que guarden el MISMO código casi
+  // al mismo tiempo calculan la misma versión, y el índice único de la
+  // base rechaza al segundo. En vez de fallarle al usuario, se vuelve a
+  // leer la versión más alta y se reintenta — que es justo el
+  // comportamiento correcto: la segunda ficha debe quedar como la
+  // siguiente versión, no perderse ni pisar a la primera.
+  for (let intento = 0; intento < 5; intento++) {
+    const ficha = {
+      ...base,
+      id: idFicha(),
+      version: await siguienteVersion(base.codigo),
+      guardadaEn: new Date().toISOString(),
+    };
+    try {
+      await almacen.guardar(ficha);
+      return ficha;
+    } catch (err) {
+      // 23505 = llave duplicada en Postgres; 409 = el conflicto en PostgREST.
+      const choque = /23505|409|duplicate key|duplicada/i.test(err.message || '');
+      if (!choque || intento === 4) throw err;
+    }
+  }
+  throw new Error('No se pudo asignar una versión libre después de varios intentos.');
 }
 
 /**
