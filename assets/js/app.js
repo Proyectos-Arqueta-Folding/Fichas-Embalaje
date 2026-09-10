@@ -545,6 +545,16 @@ function render({ scrollToScene = false } = {}) {
           <td class="label">Corrugados por tarima</td><td class="value">${totalMostrado}</td>
           <td class="label">Piezas por tarima</td><td class="value" style="font-size:16px; color:var(--af-blue);">${totalMostrado * estrategia.total} pzs</td>
         </tr>
+        <tr>
+          <td class="label">Peso de la tarima</td>
+          <td class="value" style="font-size:16px; color:var(--af-navy);">${pesos ? `${fmt(pesos.tarimaTotalKg, 2)} kg` : '—'}</td>
+          <td class="label">Máximo por corrugado</td>
+          <td class="value">${pesos
+            ? `${pesos.limiteCorrugadoKg} kg ${pesos.excedeLimite
+                ? `<span style="color:#8a2a2a;">⚠️ excedido por ${fmt(pesos.excesoKg, 2)} kg</span>`
+                : '<span style="color:#14603a;">✓</span>'}`
+            : '—'}</td>
+        </tr>
       </table>
 
       <div class="ficha-footer">AF-FR-PP-02 FICHA DE EMBALAJE — Prototipo v1</div>
