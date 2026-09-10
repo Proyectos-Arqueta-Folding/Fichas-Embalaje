@@ -43,7 +43,7 @@ const CAPAS_POR_PEGUE = {
   charola: { label: 'Charola', capas: 1 },
   lineal: { label: 'Pegue lineal', capas: 3 },
   fondo_automatico: { label: 'Fondo automático', capas: 4 },
-  cuatro_esquinas: { label: '4 esquinas', capas: 4 },
+  cuatro_esquinas: { label: '4 esquinas', capas: 5 },
 };
 
 // De "Proveedores_Lozano.xlsx" — gramaje (g/m2) de cartón sólido por
