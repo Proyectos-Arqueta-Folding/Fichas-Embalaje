@@ -429,7 +429,10 @@ function render({ scrollToScene = false } = {}) {
 
   $('#btn-pdf').addEventListener('click', () => {
     const pesoTotalKg = pesoPiezaG != null ? (pesoPiezaG * estrategia.total) / 1000 : null;
-    renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas, totalMostrado, pesoTotalKg, fecha });
+    renderPrintFicha({
+      input, corrugado, estrategia, estiba, camasMostradas, totalMostrado, pesoTotalKg, fecha,
+      grosorPiezaMm, largoDobladoMm, altoDobladoMm,
+    });
     window.print();
   });
 
