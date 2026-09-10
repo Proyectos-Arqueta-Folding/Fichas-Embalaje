@@ -819,69 +819,149 @@ html, body {
 }
 
 /* ---------- Menu del historial (cliente > producto > versiones) ---------- */
+
+/* Migas: barra propia, para que se lea como la ruta del menu y no como
+   un enlace suelto perdido arriba de la lista. */
 .hist-migas {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
-  font-size: 12.5px;
+  background: var(--af-blue-pale);
+  border: 1px solid var(--af-border);
+  border-radius: 10px 10px 0 0;
+  border-bottom: none;
+  padding: 9px 14px;
+  font-size: 13px;
 }
 .hist-miga {
   font-family: inherit;
-  font-size: 12.5px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--af-blue);
   background: none;
   border: none;
-  padding: 3px 6px;
+  padding: 3px 7px;
   border-radius: 6px;
   cursor: pointer;
 }
-.hist-miga:hover { background: var(--af-blue-pale); text-decoration: underline; }
-.hist-miga-actual { font-weight: 700; color: var(--af-navy); padding: 3px 2px; }
-.hist-sep { color: var(--af-ink-soft); }
+.hist-miga:hover { background: rgba(255,255,255,0.85); }
+.hist-miga-actual { font-weight: 700; color: var(--af-navy); padding: 3px 4px; }
+.hist-sep { color: var(--af-blue-light); font-weight: 700; }
 
 .hist-nivel {
   border: 1px solid var(--af-border);
-  border-radius: 10px;
+  border-radius: 0 0 10px 10px;
   overflow: hidden;
+  background: var(--af-white);
 }
+/* Cuando se esta buscando no hay migas, asi que el nivel redondea arriba. */
+.hist-nivel:first-child { border-radius: 10px; }
 
+/* Renglon del menu: icono | nombre + detalle | contador | flecha.
+   Cada parte con su peso, para que se lea de un vistazo. */
 .hist-item {
   display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-areas: "nombre flecha" "meta flecha";
+  grid-template-columns: auto 1fr auto auto;
+  grid-template-areas: "icono nombre cuenta flecha" "icono meta cuenta flecha";
   align-items: center;
-  gap: 2px 12px;
+  gap: 3px 14px;
   width: 100%;
   text-align: left;
   font-family: inherit;
   background: var(--af-white);
   border: none;
   border-top: 1px solid var(--af-border);
-  padding: 11px 14px;
+  padding: 14px 16px;
   cursor: pointer;
   transition: background .12s;
 }
 .hist-item:first-child { border-top: none; }
 .hist-item:hover { background: var(--af-blue-pale); }
+.hist-item:hover .hist-flecha { color: var(--af-blue); transform: translateX(3px); }
+
+.hist-icono {
+  grid-area: icono;
+  width: 34px;
+  height: 34px;
+  border-radius: 9px;
+  background: var(--af-blue-pale);
+  color: var(--af-blue);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+}
+.hist-item:hover .hist-icono { background: var(--af-white); }
+.hist-icono svg { width: 18px; height: 18px; display: block; }
+
 .hist-item-nombre {
   grid-area: nombre;
-  font-size: 14px;
+  font-size: 15px;
   font-weight: 700;
   color: var(--af-navy);
+  line-height: 1.25;
 }
-.hist-item-art { font-weight: 500; color: var(--af-ink-soft); }
-.hist-item-meta { grid-area: meta; font-size: 11.5px; color: var(--af-ink-soft); }
+.hist-item-art {
+  display: block;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--af-ink-soft);
+  margin-top: 1px;
+}
+.hist-item-meta { grid-area: meta; font-size: 12px; color: var(--af-ink-soft); }
+
+/* El conteo va como pastilla a la derecha: es el dato que se compara
+   entre renglones, no un detalle mas dentro del texto. */
+.hist-cuenta-pill {
+  grid-area: cuenta;
+  background: var(--af-navy);
+  color: var(--af-white);
+  border-radius: 999px;
+  padding: 3px 11px;
+  font-size: 11.5px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.hist-item:hover .hist-cuenta-pill { background: var(--af-blue); }
+
 .hist-flecha {
   grid-area: flecha;
-  font-size: 20px;
+  font-size: 22px;
   color: var(--af-blue-light);
   line-height: 1;
+  transition: transform .12s, color .12s;
 }
 
-/* La fecha manda en el renglon de cada version. */
-.hist-fecha { font-size: 13px; font-weight: 600; color: var(--af-ink); }
-.hist-nivel .hist-fila { border-top: 1px solid var(--af-border); }
+/* Nivel 3: la fecha manda el renglon. */
+.hist-fecha { font-size: 13.5px; font-weight: 700; color: var(--af-navy); }
+.hist-nivel .hist-fila { border-top: 1px solid var(--af-border); padding: 12px 16px; }
 .hist-nivel .hist-fila:first-child { border-top: none; }
+
+/* Fila codigo + version + realizado. La version va angosta porque es un
+   numero de una o dos cifras. */
+.af-row-ver { display: grid; grid-template-columns: 1.5fr 0.55fr 1.5fr; gap: 10px; }
+@media (max-width: 560px) { .af-row-ver { grid-template-columns: 1fr; } }
+
+.version-nota {
+  border-radius: 8px;
+  padding: 7px 11px;
+  font-size: 12px;
+  line-height: 1.45;
+  margin: -6px 0 14px;
+  border: 1px solid transparent;
+}
+.version-nota-info { background: var(--af-blue-pale); border-color: #a9cbe4; color: #1a3f5c; }
+.version-nota-choque { background: #fdeaea; border-color: #e8b4b4; color: #8a2a2a; }
+.version-nota button {
+  font-family: inherit;
+  font-size: 11.5px;
+  font-weight: 700;
+  border: 1px solid currentColor;
+  background: rgba(255,255,255,0.7);
+  color: inherit;
+  border-radius: 999px;
+  padding: 2px 10px;
+  margin-left: 6px;
+  cursor: pointer;
+}

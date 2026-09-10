@@ -576,6 +576,7 @@ function render({ scrollToScene = false } = {}) {
     btn.disabled = true;
     try {
       const ficha = await guardarFichaActual({
+        version: Number($('#version').value) || 1,
         input,
         seleccion: {
           corrugadoId: corrugado.id,
@@ -598,14 +599,29 @@ function render({ scrollToScene = false } = {}) {
       });
       $('#guardar-estado').innerHTML = `
         <div class="ocr-estado ocr-listo" style="margin-top:10px;">
-          Guardada como <b>${ficha.codigo} V${ficha.version}</b>. Aparece abajo en el historial.
+          Guardada como <b>${ficha.codigo} V${ficha.version}</b>. Aparece en el historial,
+          dentro de ${ficha.cliente || 'SIN CLIENTE'}.
         </div>`;
+      await avisoVersion();
       await pintarHistorial();
     } catch (err) {
-      $('#guardar-estado').innerHTML = `
-        <div class="ocr-estado ocr-aviso" style="margin-top:10px;">
-          No se pudo guardar (${err.message}).
-        </div>`;
+      // Choque de versión: se ofrece la siguiente libre en vez de solo
+      // decir que falló.
+      $('#guardar-estado').innerHTML = err.versionOcupada
+        ? `<div class="ocr-estado ocr-aviso" style="margin-top:10px;">
+             ${err.message} Cambia el número de versión, o
+             <button type="button" id="btn-usar-libre" class="af-btn af-btn-ghost"
+               style="padding:3px 12px; font-size:12px;">usar la V${err.libre}</button>
+           </div>`
+        : `<div class="ocr-estado ocr-aviso" style="margin-top:10px;">
+             No se pudo guardar (${err.message}).
+           </div>`;
+      const usar = $('#btn-usar-libre');
+      if (usar) usar.addEventListener('click', () => {
+        $('#version').value = err.libre;
+        $('#guardar-estado').innerHTML = '';
+        avisoVersion();
+      });
     } finally {
       btn.disabled = false;
     }
@@ -707,6 +723,10 @@ $('#btn-nueva').addEventListener('click', () => {
   estadoOcr('');
   $('#print-ficha').innerHTML = '';
   $('#preview-container').innerHTML = PREVIEW_VACIO;
+  // El reset del formulario no regresa la versión a 1 por sí solo.
+  $('#version').value = 1;
+  $('#version-nota').innerHTML = '';
+  $('#guardar-estado').innerHTML = '';
   $('#af-header-tag').textContent = 'Ficha nueva';
   $('#cliente').focus();
   window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -782,16 +802,22 @@ function migasHTML() {
   return `<div class="hist-migas">${partes.join('')}</div>`;
 }
 
+// Un icono por nivel, para que de un vistazo se sepa si la lista es de
+// clientes o de productos sin tener que leer las migas.
+const ICONO_CLIENTE = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 21h18M5 21V7l7-4 7 4v14"/><path d="M9 9h2M13 9h2M9 13h2M13 13h2M9 17h6"/></svg>';
+const ICONO_PRODUCTO = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg>';
+
 /** Nivel 1: los clientes. */
 function nivelClientesHTML(arbol) {
   return arbol.map((c) => `
     <button class="hist-item" data-cliente="${encodeURIComponent(c.cliente)}">
+      <span class="hist-icono">${ICONO_CLIENTE}</span>
       <span class="hist-item-nombre">${c.cliente}</span>
       <span class="hist-item-meta">
         ${c.productos.length} ${c.productos.length === 1 ? 'producto' : 'productos'}
-        · ${c.totalVersiones} ${c.totalVersiones === 1 ? 'ficha' : 'fichas'}
-        · última ${fechaDia(c.ultima)}
+        · última ficha ${fechaDia(c.ultima)}
       </span>
+      <span class="hist-cuenta-pill">${c.totalVersiones} ${c.totalVersiones === 1 ? 'ficha' : 'fichas'}</span>
       <span class="hist-flecha">›</span>
     </button>
   `).join('');
@@ -801,11 +827,10 @@ function nivelClientesHTML(arbol) {
 function nivelProductosHTML(productos) {
   return productos.map((p) => `
     <button class="hist-item" data-codigo="${encodeURIComponent(p.codigo)}">
-      <span class="hist-item-nombre">${p.codigo} <span class="hist-item-art">${p.articulo}</span></span>
-      <span class="hist-item-meta">
-        ${p.versiones.length} ${p.versiones.length === 1 ? 'versión' : 'versiones'}
-        · última ${fechaDia(p.ultima)}
-      </span>
+      <span class="hist-icono">${ICONO_PRODUCTO}</span>
+      <span class="hist-item-nombre">${p.codigo}<span class="hist-item-art">${p.articulo}</span></span>
+      <span class="hist-item-meta">Última versión ${fechaDia(p.ultima)}</span>
+      <span class="hist-cuenta-pill">${p.versiones.length} ${p.versiones.length === 1 ? 'versión' : 'versiones'}</span>
       <span class="hist-flecha">›</span>
     </button>
   `).join('');
@@ -835,11 +860,10 @@ function nivelVersionesHTML(producto) {
 function resultadosHTML(productos) {
   return productos.map((p) => `
     <button class="hist-item" data-cliente="${encodeURIComponent(p.cliente)}" data-codigo="${encodeURIComponent(p.codigo)}">
-      <span class="hist-item-nombre">${p.codigo} <span class="hist-item-art">${p.articulo}</span></span>
-      <span class="hist-item-meta">
-        ${p.cliente} · ${p.versiones.length} ${p.versiones.length === 1 ? 'versión' : 'versiones'}
-        · última ${fechaDia(p.ultima)}
-      </span>
+      <span class="hist-icono">${ICONO_PRODUCTO}</span>
+      <span class="hist-item-nombre">${p.codigo}<span class="hist-item-art">${p.articulo}</span></span>
+      <span class="hist-item-meta">${p.cliente} · última ${fechaDia(p.ultima)}</span>
+      <span class="hist-cuenta-pill">${p.versiones.length} ${p.versiones.length === 1 ? 'versión' : 'versiones'}</span>
       <span class="hist-flecha">›</span>
     </button>
   `).join('');
@@ -950,6 +974,10 @@ async function abrirFicha(id) {
   $('#articulo').value = e.articulo || '';
   $('#codigo').value = e.codigo || '';
   $('#realizado').value = e.realizado || '';
+  // Al abrir una versión, el campo muestra ESA versión. Si el usuario
+  // guarda sin cambiarlo, el aviso le dirá que está ocupada — que es lo
+  // correcto: para crear otra hay que decidir qué número lleva.
+  $('#version').value = f.version;
   $('#largo').value = e.largo;
   $('#ancho').value = e.ancho;
   $('#alto').value = e.alto;
@@ -990,6 +1018,7 @@ async function abrirFicha(id) {
   const cambio = ahora !== f.resumen.piezasPorTarima;
 
   $('#af-header-tag').textContent = `${f.codigo} V${f.version} — guardada el ${fechaCorta(f.guardadaEn)}`;
+  avisoVersion();
   const aviso = $('#historial-aviso');
   if (aviso) {
     // La próxima versión NO es siempre `version + 1`: si esta es la V1 y
@@ -1024,3 +1053,46 @@ elegirAlmacen().then((r) => {
   estadoAlmacen = r;
   if (!$('#historial-panel').hasAttribute('hidden')) pintarHistorial();
 });
+
+// ---------------------------------------------------------------------
+// Campo de versión
+// ---------------------------------------------------------------------
+
+/**
+ * Nota bajo el campo de versión: qué versiones ya existen de ese código
+ * y si la que está escrita choca.
+ *
+ * No se cambia el número solo: el usuario decide qué versión está
+ * capturando. Solo se le dice lo que hay, para que no guarde a ciegas.
+ */
+async function avisoVersion() {
+  const caja = $('#version-nota');
+  if (!caja) return;
+  const codigo = $('#codigo').value.trim();
+  const version = Number($('#version').value) || 1;
+  if (!codigo) { caja.innerHTML = ''; return; }
+
+  let usadas = [];
+  try { usadas = await versionesDe(codigo); } catch { caja.innerHTML = ''; return; }
+
+  if (!usadas.length) {
+    caja.innerHTML = `<div class="version-nota version-nota-info">
+      <b>${codigo}</b> es nuevo en el historial: se guardará como <b>V${version}</b>.</div>`;
+    return;
+  }
+
+  const libre = Math.max(...usadas) + 1;
+  const lista = usadas.map((v) => `V${v}`).join(', ');
+  caja.innerHTML = usadas.includes(version)
+    ? `<div class="version-nota version-nota-choque">
+         <b>${codigo}</b> ya tiene ${lista}. La <b>V${version}</b> está ocupada y no se sobrescribe.
+         <button type="button" id="btn-ver-libre">Usar V${libre}</button></div>`
+    : `<div class="version-nota version-nota-info">
+         <b>${codigo}</b> ya tiene ${lista}. Se guardará como <b>V${version}</b>.</div>`;
+
+  const b = $('#btn-ver-libre');
+  if (b) b.addEventListener('click', () => { $('#version').value = libre; avisoVersion(); });
+}
+
+$('#codigo').addEventListener('input', () => avisoVersion());
+$('#version').addEventListener('input', () => avisoVersion());

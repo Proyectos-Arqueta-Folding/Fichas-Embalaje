@@ -200,7 +200,28 @@ async function siguienteVersion(codigo) {
  * Guarda el estado actual como una versión nueva.
  * `resumen` es la foto de los números, para poder comparar después.
  */
-async function guardarFichaActual({ input, seleccion, resumen }) {
+/** Versiones que ya existen para un código. */
+async function versionesDe(codigo) {
+  const clave = (codigo || '').trim().toUpperCase();
+  if (!clave) return [];
+  return (await almacen.listar())
+    .filter((f) => (f.codigo || '').trim().toUpperCase() === clave)
+    .map((f) => f.version)
+    .sort((a, b) => a - b);
+}
+
+/**
+ * Guarda la ficha.
+ *
+ * `version` la elige el usuario en el formulario. Si ya existe esa
+ * versión del mismo código, NO se cambia el número por lo bajo: se
+ * avisa. Sobrescribir en silencio sería peor —alguien podría creer que
+ * actualizó la V2 cuando en realidad creó la V5— y renumerar en
+ * silencio deja al usuario guardando en un lugar que no pidió.
+ *
+ * Si no se pasa versión, se toma la siguiente libre.
+ */
+async function guardarFichaActual({ input, seleccion, resumen, version }) {
   const base = {
     codigo: (input.codigo || '').trim() || 'SIN-CODIGO',
     cliente: input.cliente,
@@ -211,6 +232,21 @@ async function guardarFichaActual({ input, seleccion, resumen }) {
     resumen: { ...resumen },
   };
 
+  // Versión pedida a mano: se respeta o se avisa, nunca se renumera sola.
+  if (version) {
+    const usadas = await versionesDe(base.codigo);
+    if (usadas.includes(Number(version))) {
+      const err = new Error(`Ya existe la V${version} de ${base.codigo}.`);
+      err.versionOcupada = true;
+      err.libre = (usadas.length ? Math.max(...usadas) : 0) + 1;
+      throw err;
+    }
+    const ficha = { ...base, id: idFicha(), version: Number(version), guardadaEn: new Date().toISOString() };
+    await almacen.guardar(ficha);
+    return ficha;
+  }
+
+  // Sin versión pedida: la siguiente libre, con reintento.
   // Carrera real con 20 personas: dos que guarden el MISMO código casi
   // al mismo tiempo calculan la misma versión, y el índice único de la
   // base rechaza al segundo. En vez de fallarle al usuario, se vuelve a

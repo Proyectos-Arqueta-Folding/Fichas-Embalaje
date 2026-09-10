@@ -62,16 +62,21 @@
             <input type="text" id="articulo" placeholder="Ej. SUPERPACK" required>
           </div>
         </div>
-        <div class="af-row2">
+        <div class="af-row-ver">
           <div class="af-field">
             <label for="codigo">Código de producto</label>
             <input type="text" id="codigo" placeholder="Ej. FT-AF0013">
+          </div>
+          <div class="af-field">
+            <label for="version">Versión</label>
+            <input type="number" id="version" min="1" step="1" value="1">
           </div>
           <div class="af-field">
             <label for="realizado">Realizado por</label>
             <input type="text" id="realizado" placeholder="Tu nombre">
           </div>
         </div>
+        <div id="version-nota"></div>
 
         <h2 style="margin-top:22px;">Caja interna (armada)</h2>
         <p class="af-card-hint">Las 3 medidas de la caja ya armada, en milímetros.</p>
