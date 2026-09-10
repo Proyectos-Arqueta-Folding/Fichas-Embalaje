@@ -93,7 +93,7 @@ function svgPosteta(cama, index) {
       <svg viewBox="0 0 80 60" xmlns="http://www.w3.org/2000/svg">${sheets}</svg>
       <div class="pf-posteta-label">
         ${index + 1}${index === 0 ? 'RA' : 'DA'} CAMA<br>
-        ${cama.cols * cama.filas + (cama.extra || 0)} POSTETAS${cama.extra ? ` (${cama.postetasPorCama - cama.extra}+${cama.extra} rot.)` : ''} DE ${cama.piezasPorPosteta} PZ<br>
+        ${cama.postetasPorCama} POSTETAS DE ${cama.piezasPorPosteta} PZ<br>
         ${cama.orientacionLabel.toUpperCase()}
       </div>
     </div>
@@ -184,7 +184,7 @@ function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas
       <tr>
         <td class="pf-label">Tipo de Caja:</td><td>${corrugado.id}</td>
         <td class="pf-label">Cantidad por Cama:</td><td>${estiba.piso.total} cajas</td>
-        <td class="pf-label">Postetas por caja:</td><td>${estrategia.camas.map((c) => `${c.cols * c.filas + (c.extra || 0)}/${c.piezasPorPosteta}`).join(' + ')}</td>
+        <td class="pf-label">Postetas por caja:</td><td>${estrategia.camas.map((c) => `${c.postetasPorCama}/${c.piezasPorPosteta}`).join(' + ')}</td>
       </tr>
       <tr>
         <td class="pf-label">Dimensiones Internas:</td><td>${corrugado.largo} X ${corrugado.ancho} X ${corrugado.alto} mm</td>

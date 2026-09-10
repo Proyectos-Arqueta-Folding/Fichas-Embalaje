@@ -153,31 +153,45 @@ function piso2D(dimA, dimB, f1, f2, exigirSimetria = true) {
  * doblada, probando los 3 posibles ejes de apilado (parada = eje alto,
  * acostada = eje largo o ancho). Regresa TODAS las opciones válidas,
  * ordenadas de mayor a menor total de piezas.
+ *
+ * Las piezas van agrupadas en POSTETAS de `piezasPorPosteta` piezas
+ * (múltiplo de 5). A lo largo del eje de apilado solo se cuentan las
+ * postetas COMPLETAS: si sobra espacio para media posteta, se queda
+ * vacío. No debe haber postetas volando en una cama.
  */
-function evaluarEspacio({ largo, ancho, alto }, { largoDoblado, altoDoblado }, grosorPieza) {
+function evaluarEspacio({ largo, ancho, alto }, { largoDoblado, altoDoblado }, grosorPieza, piezasPorPosteta) {
   const candidatos = [];
+  const alturaPosteta = piezasPorPosteta * grosorPieza;
 
-  function agregar(ejeApilado, orientacionLabel, apiladas, dimA, dimB, ejeA, ejeB) {
-    if (apiladas <= 0) return;
+  function agregar(ejeApilado, orientacionLabel, largoEje, dimA, dimB, ejeA, ejeB) {
+    // Cuántas postetas COMPLETAS caben a lo largo del eje de apilado.
+    const postetasEnEje = Math.floor(largoEje / alturaPosteta);
+    if (postetasEnEje <= 0) return;
+
     const p = piso2D(dimA, dimB, largoDoblado, altoDoblado);
     if (p.total <= 0) return;
+
+    const postetasPorCama = p.total * postetasEnEje;
     candidatos.push({
-      ejeApilado, orientacionLabel, apiladas,
-      cols: p.cols, filas: p.filas, postetasPorCama: p.total,
-      piezasPorPosteta: apiladas, total: p.total * apiladas,
+      ejeApilado, orientacionLabel,
+      // Piezas a lo largo del eje: solo de postetas completas.
+      apiladas: postetasEnEje * piezasPorPosteta,
+      postetasEnEje,
+      cols: p.cols, filas: p.filas, postetasPorCama,
+      piezasPorPosteta, total: postetasPorCama * piezasPorPosteta,
       ejeA, ejeB, dimA: p.wA, dimB: p.wB,
       extraCols: p.extraCols, extraFilas: p.extraFilas, extra: p.extra,
     });
   }
 
   // Parada: se apila en el alto; el footprint doblado ocupa el piso (largo x ancho).
-  agregar('alto', 'Parada', Math.floor(alto / grosorPieza), largo, ancho, 'largo', 'ancho');
+  agregar('alto', 'Parada', alto, largo, ancho, 'largo', 'ancho');
   // Acostada (eje largo): se apila a lo largo del corrugado; el footprint
   // doblado ocupa la cara (ancho x alto).
-  agregar('largo', 'Acostada (a lo largo)', Math.floor(largo / grosorPieza), ancho, alto, 'ancho', 'alto');
+  agregar('largo', 'Acostada (a lo largo)', largo, ancho, alto, 'ancho', 'alto');
   // Acostada (eje ancho): se apila a lo ancho del corrugado; el footprint
   // doblado ocupa la cara (largo x alto).
-  agregar('ancho', 'Acostada (a lo ancho)', Math.floor(ancho / grosorPieza), largo, alto, 'largo', 'alto');
+  agregar('ancho', 'Acostada (a lo ancho)', ancho, largo, alto, 'largo', 'alto');
 
   candidatos.sort((a, b) => b.total - a.total);
   return candidatos;
@@ -212,18 +226,18 @@ function dimensionesUsadas(cama, grosorPieza) {
  * se queda como espacio muerto a propósito: solo se reaprovecha el
  * sobrante de ALTURA.
  */
-function empacarCamasEncima(corrugadoDims, doblada, grosorPieza, altoRestante, altoOcupado, camasRestantes) {
+function empacarCamasEncima(corrugadoDims, doblada, grosorPieza, piezasPorPosteta, altoRestante, altoOcupado, camasRestantes) {
   if (camasRestantes <= 0 || altoRestante <= MIN_UTIL_MM) return { camas: [], total: 0 };
 
   const slot = { largo: corrugadoDims.largo, ancho: corrugadoDims.ancho, alto: altoRestante };
-  const opciones = evaluarEspacio(slot, doblada, grosorPieza);
+  const opciones = evaluarEspacio(slot, doblada, grosorPieza, piezasPorPosteta);
   let mejor = { camas: [], total: 0 }; // siempre se puede dejar el hueco vacío
 
   for (const opcion of opciones) {
     const usado = dimensionesUsadas(opcion, grosorPieza);
     const cama = { ...opcion, origen: { largo: 0, ancho: 0, alto: altoOcupado } };
     const sub = empacarCamasEncima(
-      corrugadoDims, doblada, grosorPieza,
+      corrugadoDims, doblada, grosorPieza, piezasPorPosteta,
       altoRestante - usado.alto, altoOcupado + usado.alto,
       camasRestantes - 1,
     );
@@ -239,12 +253,12 @@ function empacarCamasEncima(corrugadoDims, doblada, grosorPieza, altoRestante, a
  * la PRIMERA cama (para poder comparar las 3 orientaciones de arranque
  * en la UI) y apilando encima las camas que quepan en la altura restante.
  */
-function armarEstrategia(corrugadoDims, primeraCama, doblada, grosorPieza) {
+function armarEstrategia(corrugadoDims, primeraCama, doblada, grosorPieza, piezasPorPosteta) {
   const usado = dimensionesUsadas(primeraCama, grosorPieza);
   const cama = { ...primeraCama, origen: { largo: 0, ancho: 0, alto: 0 } };
 
   const encima = empacarCamasEncima(
-    corrugadoDims, doblada, grosorPieza,
+    corrugadoDims, doblada, grosorPieza, piezasPorPosteta,
     corrugadoDims.alto - usado.alto, usado.alto,
     MAX_CAMAS - 1,
   );
@@ -252,23 +266,100 @@ function armarEstrategia(corrugadoDims, primeraCama, doblada, grosorPieza) {
   return {
     camas: [cama, ...encima.camas],
     total: primeraCama.total + encima.total,
+    piezasPorPosteta,
   };
 }
 
+// Tamaños de posteta permitidos: números "redondos" para contar y armar
+// a mano. No tienen que ser múltiplos de 5 — también sirven 8, 12, 16 y
+// 24, que dan más precisión al ajustar. Se toman los múltiplos de 5 y
+// los de 4 (de ahí salen 8, 12, 16, 24).
+const POSTETA_MIN = 5;
+const POSTETA_MAX = 400;
+
 /**
- * Evalúa un corrugado completo: para cada opción posible de PRIMERA cama
- * (parada / acostada-largo / acostada-ancho), encuentra la mejor
- * combinación completa de camas siguientes (búsqueda exhaustiva, no
- * golosa) — así se evalúan todas las posibilidades de camas que quepan
- * en el corrugado, no solo la primera que aparece. Regresa todas las
- * estrategias ordenadas de mayor a menor total, para comparar y
- * seleccionar manualmente.
+ * Rango de tamaño PREFERIDO según el material, para cuando varios
+ * tamaños empatan en total de piezas:
+ *  - Cartón sólido (caple, multicapa): entre 20 y 25 piezas.
+ *  - Microcorrugado: mucho más chicas (5 a 10), porque el bulto crece
+ *    rápido y se vuelve inmanejable.
  */
-function evaluarCorrugado(corrugado, doblada, grosorPieza) {
-  const primeras = evaluarEspacio(corrugado, doblada, grosorPieza);
-  const estrategias = primeras.map((primera) => armarEstrategia(corrugado, primera, doblada, grosorPieza));
-  estrategias.sort((a, b) => b.total - a.total);
-  return estrategias;
+const POSTETA_RANGO = {
+  solido: [20, 25],
+  microcorrugado: [5, 10],
+};
+
+function esTamanoValido(p) {
+  return p % 5 === 0 || p % 4 === 0;
+}
+
+/** Qué tan lejos queda un tamaño del rango preferido (0 = dentro). */
+function distanciaAlRango(piezas, tipoCarton) {
+  const [min, max] = POSTETA_RANGO[tipoCarton] || POSTETA_RANGO.solido;
+  if (piezas < min) return min - piezas;
+  if (piezas > max) return piezas - max;
+  return 0;
+}
+
+/** Tamaños de posteta a evaluar para un corrugado dado. */
+function candidatosPosteta(corrugado, grosorPieza) {
+  const ejeMasLargo = Math.max(corrugado.largo, corrugado.ancho, corrugado.alto);
+  const tope = Math.min(POSTETA_MAX, Math.floor(ejeMasLargo / grosorPieza));
+  const out = [];
+  for (let p = POSTETA_MIN; p <= tope; p++) {
+    if (esTamanoValido(p)) out.push(p);
+  }
+  return out;
+}
+
+/**
+ * Evalúa un corrugado completo. Dos búsquedas anidadas:
+ *
+ *  1. TAMAÑO DE POSTETA: se prueba cada múltiplo de 5 que quepa. Como
+ *     solo cuentan las postetas completas, el tamaño cambia cuántas
+ *     piezas entran; se busca el que da el máximo.
+ *  2. ACOMODO: para el tamaño ganador, se arma una estrategia por cada
+ *     orientación de primera cama (parada / acostada-largo /
+ *     acostada-ancho), rellenando la altura restante de forma exhaustiva.
+ *
+ * Varios tamaños de posteta suelen EMPATAR en el total (ej. 5, 10 y 20
+ * dan lo mismo). El total manda, y entre los empatados se elige el que
+ * cae más cerca del rango preferido del material (ver POSTETA_RANGO);
+ * a igual cercanía, el más grande, que son menos bultos que armar.
+ * Se regresan todos los tamaños viables con su total, para poder
+ * cambiarlo desde la UI y ver qué cuesta.
+ */
+function evaluarCorrugado(corrugado, doblada, grosorPieza, tipoCarton) {
+  const porTamano = candidatosPosteta(corrugado, grosorPieza).map((piezasPorPosteta) => {
+    const primeras = evaluarEspacio(corrugado, doblada, grosorPieza, piezasPorPosteta);
+    const estrategias = primeras
+      .map((primera) => armarEstrategia(corrugado, primera, doblada, grosorPieza, piezasPorPosteta))
+      .sort((a, b) => b.total - a.total);
+    return { piezasPorPosteta, estrategias, total: estrategias.length ? estrategias[0].total : 0 };
+  }).filter((r) => r.total > 0);
+
+  if (porTamano.length === 0) {
+    return { estrategias: [], piezasPorPosteta: null, tamanos: [] };
+  }
+
+  const maximo = Math.max(...porTamano.map((r) => r.total));
+  const elegido = porTamano
+    .filter((r) => r.total === maximo)
+    .sort((a, b) => (
+      distanciaAlRango(a.piezasPorPosteta, tipoCarton) - distanciaAlRango(b.piezasPorPosteta, tipoCarton)
+      || b.piezasPorPosteta - a.piezasPorPosteta
+    ))[0];
+
+  return {
+    estrategias: elegido.estrategias,
+    piezasPorPosteta: elegido.piezasPorPosteta,
+    // Todos los tamaños viables, para comparar en la UI.
+    tamanos: porTamano.map((r) => ({
+      piezas: r.piezasPorPosteta,
+      total: r.total,
+      estrategias: r.estrategias,
+    })),
+  };
 }
 
 /**
@@ -289,13 +380,21 @@ function calcularMejorEmpaque({ largo, ancho, laminaAlto, tipoCarton, calibre, p
   const grosorPieza = grosorPiezaMm({ tipo: tipoCarton, calibre, pegue });
   if (!grosorPieza) return { error: 'Calibre o tipo de pegue inválido.' };
 
-  const porCorrugado = CORRUGADOS.map((corrugado) => ({
-    corrugado,
-    opciones: evaluarCorrugado(corrugado, doblada, grosorPieza),
-  })).filter((r) => r.opciones.length > 0);
+  const porCorrugado = CORRUGADOS.map((corrugado) => {
+    const r = evaluarCorrugado(corrugado, doblada, grosorPieza, tipoCarton);
+    return {
+      corrugado,
+      opciones: r.estrategias,
+      piezasPorPosteta: r.piezasPorPosteta,
+      tamanos: r.tamanos,
+    };
+  }).filter((r) => r.opciones.length > 0);
 
   if (porCorrugado.length === 0) {
-    return { error: 'La caja doblada no cabe en ningún corrugado del catálogo con este calibre/pegue.' };
+    return {
+      error: 'La caja doblada no cabe en ningún corrugado del catálogo con este calibre/pegue '
+        + `(ni con postetas de ${POSTETA_MIN} piezas, el grupo más chico).`,
+    };
   }
 
   // El objetivo real es mandar las MENOS tarimas posibles, no solo llenar

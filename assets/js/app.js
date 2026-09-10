@@ -105,11 +105,14 @@ function fmt(n, dec = 1) {
   return Number(n).toLocaleString('es-MX', { minimumFractionDigits: dec, maximumFractionDigits: dec });
 }
 
-// Resume 1 cama, incluyendo el grupo rotado si mezcla orientaciones
-// dentro de la misma cama (ej. "6×3×260 + 2 rotadas×260").
+// Resume 1 cama: cuántas postetas lleva y cómo están acomodadas.
+// Ej. "Parada 2×1 piso × 26 a lo alto = 52 postetas".
 function camaLabel(c) {
-  const base = `${c.orientacionLabel} ${c.cols}×${c.filas}×${c.piezasPorPosteta}`;
-  return c.extra > 0 ? `${base} + ${c.extraCols}×${c.extraFilas} rotadas×${c.piezasPorPosteta}` : base;
+  const piso = c.extra > 0
+    ? `${c.cols}×${c.filas} + ${c.extraCols}×${c.extraFilas} rotadas`
+    : `${c.cols}×${c.filas}`;
+  const enEje = c.postetasEnEje > 1 ? ` × ${c.postetasEnEje} a lo alto` : '';
+  return `${c.orientacionLabel} ${piso} piso${enEje} = ${c.postetasPorCama} postetas`;
 }
 
 // Resume una estrategia (1 o varias camas, posiblemente con ejes distintos)
@@ -130,12 +133,37 @@ let state = null;
 
 function currentSelection() {
   const entry = state.resultado.porCorrugado.find((p) => p.corrugado.id === state.corrugadoId);
-  const estrategia = entry.opciones[state.acomodoIndex];
+
+  // El tamaño de posteta se puede forzar desde la UI; si no, va el que
+  // maximiza (ya elegido por el motor).
+  const forzado = state.piezasPorPosteta
+    ? entry.tamanos.find((t) => t.piezas === state.piezasPorPosteta)
+    : null;
+  const estrategias = forzado ? forzado.estrategias : entry.opciones;
+  const idx = Math.min(state.acomodoIndex, estrategias.length - 1);
+
   return {
+    entry,
+    estrategias,
     corrugado: entry.corrugado,
-    estrategia,
-    esMejor: entry.corrugado.id === state.resultado.porCorrugado[0].corrugado.id && state.acomodoIndex === 0,
+    estrategia: estrategias[idx],
+    esMejor: entry.corrugado.id === state.resultado.porCorrugado[0].corrugado.id
+      && idx === 0 && !forzado,
   };
+}
+
+/**
+ * Tamaños de posteta que vale la pena ofrecer: los que quedan cerca del
+ * máximo (a lo más 10% abajo), para poder cambiar a un bulto más
+ * manejable viendo exactamente cuántas piezas cuesta.
+ */
+function tamanosOfrecidos(entry) {
+  const max = Math.max(...entry.tamanos.map((t) => t.total));
+  return entry.tamanos
+    .filter((t) => t.total >= max * 0.9)
+    .sort((a, b) => a.piezas - b.piezas)
+    .slice(0, 12)
+    .map((t) => ({ ...t, esMax: t.total === max }));
 }
 
 function renderListaCorrugados() {
@@ -170,7 +198,10 @@ function renderListaCorrugados() {
       <button type="button" class="corr-row ${activo ? 'corr-row-active' : ''}" data-corr="${p.corrugado.id}">
         <span class="corr-row-id">${p.corrugado.id} ${badges}</span>
         <span class="corr-row-dims">${p.corrugado.largo} × ${p.corrugado.ancho} × ${p.corrugado.alto} mm</span>
-        <span class="corr-row-detail">${estrategiaLabel(mejorEstrategia)}</span>
+        <span class="corr-row-detail">
+          <span class="corr-posteta">Posteta de ${p.piezasPorPosteta} pzs</span>
+          ${estrategiaLabel(mejorEstrategia)}
+        </span>
         <span class="corr-metric ${ganaCorrugado ? 'corr-metric-gana' : ''}">
           <span class="corr-metric-num">${mejorEstrategia.total}</span>
           <span class="corr-metric-lbl">pzs / corrugado</span>
@@ -207,21 +238,36 @@ function renderListaCorrugados() {
 }
 
 function renderControls() {
-  const { porCorrugado } = state.resultado;
-  const entry = porCorrugado.find((p) => p.corrugado.id === state.corrugadoId);
+  const { entry, estrategias, estrategia } = currentSelection();
+  const esSolido = state.input.tipoCarton === 'solido';
+  const rango = esSolido ? '20 a 25' : '5 a 10';
 
-  const estrategiaOptions = entry.opciones.map((e, i) => `
-    <option value="${i}" ${i === state.acomodoIndex ? 'selected' : ''}>
+  const estrategiaOptions = estrategias.map((e, i) => `
+    <option value="${i}" ${i === Math.min(state.acomodoIndex, estrategias.length - 1) ? 'selected' : ''}>
       ${estrategiaLabel(e)} = ${e.total} pzs
     </option>
   `).join('');
 
+  const chips = tamanosOfrecidos(entry).map((t) => `
+    <button type="button" class="posteta-chip ${t.piezas === estrategia.piezasPorPosteta ? 'posteta-chip-activo' : ''}"
+            data-posteta="${t.piezas}" title="${t.total} piezas por corrugado">
+      <span class="posteta-chip-num">${t.piezas}</span>
+      <span class="posteta-chip-total">${t.total} pzs${t.esMax ? ' · máx' : ''}</span>
+    </button>
+  `).join('');
+
   return `
     <div class="af-card">
-      <h2>Estrategia para ${entry.corrugado.id}</h2>
-      <p class="af-card-hint">Cada corrugado puede tener varias camas (paradas o acostadas); esto compara las combinaciones evaluadas.</p>
-      <div class="af-field">
-        <label>Estrategia</label>
+      <h2>Posteta y acomodo para ${entry.corrugado.id}</h2>
+      <p class="af-card-hint">
+        Tamaño de posteta (piezas por grupo). Solo cuentan las postetas completas, así que
+        ninguna cama queda con postetas volando. Para ${esSolido ? 'cartón sólido' : 'microcorrugado'}
+        conviene quedar entre <b>${rango}</b> piezas; el motor prioriza el total y entre empates
+        elige el más cercano a ese rango.
+      </p>
+      <div class="posteta-chips">${chips}</div>
+      <div class="af-field" style="margin-top:14px;">
+        <label>Acomodo de camas</label>
         <select id="sel-estrategia">${estrategiaOptions}</select>
       </div>
     </div>
@@ -251,12 +297,17 @@ function render({ scrollToScene = false } = {}) {
   const camasMostradas = usarExtendida ? estiba.camasExtendidas : estiba.camas;
   const totalMostrado = usarExtendida ? estiba.totalExtendido : estiba.total;
 
+  const totalPostetas = estrategia.camas.reduce((s, c) => s + c.postetasPorCama, 0);
+
   const camasFilas = estrategia.camas.map((c, i) => `
     <tr>
       <td class="label"><span class="dot" style="background:${CAMA_COLOR_HEX[i % CAMA_COLOR_HEX.length]}"></span>Cama ${i + 1} — ${c.orientacionLabel}</td>
       <td class="value">
-        ${c.cols} × ${c.filas} postetas × ${c.piezasPorPosteta} pzs/posteta
-        ${c.extra > 0 ? `<br><span style="color:var(--af-ink-soft); font-size:12px;">+ ${c.extraCols} × ${c.extraFilas} rotadas 90° (tira sobrante) × ${c.piezasPorPosteta} pzs/posteta</span>` : ''}
+        <b>${c.postetasPorCama} postetas</b> de ${c.piezasPorPosteta} pzs
+        <br><span style="color:var(--af-ink-soft); font-size:12px;">
+          ${c.cols} × ${c.filas} en el piso${c.postetasEnEje > 1 ? ` × ${c.postetasEnEje} apiladas` : ''}
+          ${c.extra > 0 ? `· + ${c.extraCols} × ${c.extraFilas} rotadas 90° en la tira sobrante` : ''}
+        </span>
       </td>
       <td class="value" style="text-align:right;">${c.total} pzs</td>
     </tr>
@@ -272,10 +323,17 @@ function render({ scrollToScene = false } = {}) {
 
     <div class="af-card" id="card-scene-product">
       <h2>Vista 3D — postetas dentro del corrugado</h2>
-      <p class="af-card-hint">
-        ${corrugado.id} — ${estrategiaLabel(estrategia)}
-        ${esMejor ? '<span class="badge" style="margin-left:8px;">Recomendado</span>' : ''}
-      </p>
+      <div class="posteta-destacada">
+        <div>
+          <span class="posteta-num">${estrategia.piezasPorPosteta}</span>
+          <span class="posteta-lbl">piezas por posteta</span>
+        </div>
+        <div class="posteta-detalle">
+          ${corrugado.id}: <b>${totalPostetas} postetas</b> de ${estrategia.piezasPorPosteta} pzs = ${estrategia.total} piezas
+          ${esMejor ? '<span class="badge" style="margin-left:6px;">Recomendado</span>' : ''}
+        </div>
+      </div>
+      <p class="af-card-hint">${estrategiaLabel(estrategia)}</p>
       <div id="scene3d-product"></div>
       <table class="ficha-data-table" style="margin-top:14px;">
         ${camasFilas}
@@ -379,6 +437,8 @@ function render({ scrollToScene = false } = {}) {
     btn.addEventListener('click', () => {
       state.corrugadoId = btn.dataset.corr;
       state.acomodoIndex = 0;
+      // Cada corrugado tiene su propio tamaño óptimo de posteta.
+      state.piezasPorPosteta = null;
       render({ scrollToScene: true });
     });
   });
@@ -386,6 +446,13 @@ function render({ scrollToScene = false } = {}) {
     btn.addEventListener('click', () => {
       state.ordenarPor = btn.dataset.orden;
       render();
+    });
+  });
+  $$('.posteta-chip').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      state.piezasPorPosteta = Number(btn.dataset.posteta);
+      state.acomodoIndex = 0;
+      render({ scrollToScene: true });
     });
   });
   $('#sel-estrategia').addEventListener('change', (e) => {

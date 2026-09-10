@@ -506,6 +506,72 @@ html, body {
 .corr-metric-gana .corr-metric-num { color: var(--af-blue); font-size: 17px; font-weight: 800; }
 .corr-metric-gana .corr-metric-lbl { color: var(--af-blue); }
 
+.corr-posteta {
+  display: inline-block;
+  background: var(--af-navy);
+  color: var(--af-white);
+  border-radius: 999px;
+  padding: 1px 9px;
+  font-weight: 700;
+  font-size: 11px;
+  margin-right: 6px;
+}
+
+/* ---------- Tamaño de posteta destacado ---------- */
+.posteta-destacada {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  background: var(--af-blue-pale);
+  border: 1.5px solid var(--af-blue-light);
+  border-radius: 12px;
+  padding: 12px 16px;
+  margin: 4px 0 12px;
+}
+.posteta-num {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--af-blue);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+.posteta-lbl {
+  display: block;
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: .5px;
+  color: var(--af-ink-soft);
+  margin-top: 2px;
+}
+.posteta-detalle { font-size: 13px; color: var(--af-navy); }
+
+.posteta-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.posteta-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  min-width: 64px;
+  font-family: inherit;
+  background: var(--af-white);
+  border: 1.5px solid var(--af-border);
+  border-radius: 10px;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.posteta-chip:hover { border-color: var(--af-blue-light); background: var(--af-blue-pale); }
+.posteta-chip-activo { border-color: var(--af-blue); background: var(--af-blue-pale); box-shadow: 0 0 0 2px rgba(0,96,176,0.15); }
+.posteta-chip-num {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--af-navy);
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+.posteta-chip-activo .posteta-chip-num { color: var(--af-blue); }
+.posteta-chip-total { font-size: 9.5px; color: var(--af-ink-soft); white-space: nowrap; }
+
 @media (max-width: 760px) {
   .corr-row { grid-template-columns: 1fr 1fr; row-gap: 8px; }
   .corr-row-id, .corr-row-detail { grid-column: 1 / -1; }

@@ -196,23 +196,31 @@ function renderProductScene(mountEl, { corrugado, estrategia, grosorPiezaMm }) {
 
   estrategia.camas.forEach((cama, camaIndex) => {
     const color = CAMA_COLORS[camaIndex % CAMA_COLORS.length];
-    const stackLen = cama.apiladas * grosorPiezaMm;
-    const stackCenter = cama.origen[cama.ejeApilado] + stackLen / 2;
+    // Cada posteta se dibuja por separado (no un bloque continuo), para
+    // que se vea que son grupos completos y ninguno queda volando.
+    const alturaPosteta = cama.piezasPorPosteta * grosorPiezaMm;
+    const postetas = cama.postetasEnEje || 1;
 
-    // Cuadrícula principal.
-    for (let i = 0; i < cama.cols; i++) {
-      for (let j = 0; j < cama.filas; j++) {
-        units += dibujarCelda(cama, color, cama.origen[cama.ejeA], cama.dimA, cama.dimB, i, j, stackCenter, stackLen);
+    for (let k = 0; k < postetas; k++) {
+      const inicio = cama.origen[cama.ejeApilado] + k * alturaPosteta;
+      const centro = inicio + alturaPosteta / 2;
+
+      // Cuadrícula principal.
+      for (let i = 0; i < cama.cols; i++) {
+        for (let j = 0; j < cama.filas; j++) {
+          units += dibujarCelda(cama, color, cama.origen[cama.ejeA], cama.dimA, cama.dimB, i, j, centro, alturaPosteta);
+        }
       }
-    }
 
-    // Tira sobrante rellena con postetas ROTADAS 90° (mismo truco que la
-    // tarima) — mismo eje de apilado y misma cama, distinta orientación.
-    if (cama.extra > 0) {
-      const offsetExtraA = cama.origen[cama.ejeA] + cama.cols * cama.dimA;
-      for (let i = 0; i < cama.extraCols; i++) {
-        for (let j = 0; j < cama.extraFilas; j++) {
-          units += dibujarCelda(cama, color, offsetExtraA, cama.dimB, cama.dimA, i, j, stackCenter, stackLen);
+      // Tira sobrante rellena con postetas ROTADAS 90° (mismo truco que
+      // la tarima) — mismo eje de apilado y misma cama, distinta
+      // orientación.
+      if (cama.extra > 0) {
+        const offsetExtraA = cama.origen[cama.ejeA] + cama.cols * cama.dimA;
+        for (let i = 0; i < cama.extraCols; i++) {
+          for (let j = 0; j < cama.extraFilas; j++) {
+            units += dibujarCelda(cama, color, offsetExtraA, cama.dimB, cama.dimA, i, j, centro, alturaPosteta);
+          }
         }
       }
     }
