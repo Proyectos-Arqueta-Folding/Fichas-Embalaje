@@ -43,6 +43,12 @@ html, body {
 
 .af-brand { display: flex; align-items: center; gap: 14px; }
 
+.af-logo {
+  display: flex;
+  align-items: center;
+}
+.af-logo svg { display: block; }
+
 .af-logo-mark {
   width: 38px;
   height: 38px;
@@ -52,6 +58,7 @@ html, body {
 .af-brand-text { line-height: 1.1; }
 .af-brand-text .title { font-size: 17px; font-weight: 700; letter-spacing: 0.5px; }
 .af-brand-text .subtitle { font-size: 11px; color: var(--af-blue-light); letter-spacing: 1.5px; text-transform: uppercase; }
+.af-brand { gap: 18px; }
 
 .af-header-tag {
   font-size: 13px;
@@ -329,12 +336,23 @@ html, body {
 #print-ficha { display: none; }
 
 @media print {
-  body * { visibility: hidden; }
-  #print-ficha, #print-ficha * { visibility: visible; }
-  #print-ficha {
-    display: block;
-    position: absolute;
-    top: 0; left: 0;
+  /* OJO: aqui NO sirve `visibility: hidden`. Oculta el contenido pero le
+     CONSERVA su espacio en el layout, asi que el formulario, la lista de
+     corrugados y las escenas 3D seguian ocupando alto y el PDF salia con
+     varias hojas en blanco. Tiene que ser `display: none`.
+     Antes de imprimir, app.js mueve #print-ficha a ser hijo directo de
+     <body> y le pone la clase `imprimiendo`, para que este selector
+     pueda apagar todo lo demas sin depender de la estructura del DOM. */
+  html, body {
+    margin: 0 !important;
+    padding: 0 !important;
+    height: auto !important;
+    background: #fff !important;
+  }
+  body.imprimiendo > *:not(#print-ficha) { display: none !important; }
+  body.imprimiendo #print-ficha {
+    display: block !important;
+    position: static;
     width: 100%;
   }
   @page { size: letter landscape; margin: 10mm; }
@@ -372,7 +390,7 @@ html, body {
    cada columna da ~130 mm de ancho util. Se limita el ALTO para que la
    ficha siga cabiendo en una sola pagina (el SVG se ajusta solo, porque
    su viewBox va calculado al contenido). */
-.pf-svg { display: block; width: 100%; height: auto; max-height: 78mm; margin: 0 auto; }
+.pf-svg { display: block; width: 100%; height: auto; max-height: 73mm; margin: 0 auto; }
 .pf-svg-posteta { display: block; width: 100%; height: auto; max-height: 29mm; margin: 0 auto; }
 
 .pf-dim { font-size: 8.5px; font-weight: 700; fill: #8a5a2a; font-family: Arial, sans-serif; }

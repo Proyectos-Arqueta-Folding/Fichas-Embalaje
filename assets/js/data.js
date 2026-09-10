@@ -93,6 +93,14 @@ const GRAMAJE_CORRUGADO_36ECT = 640;
 // plantilla plana. Valor típico de la industria.
 const CEJA_CORRUGADO_MM = 40;
 
+// Peso de la tarima de madera VACÍA (kg). Valor provisional de tarima
+// estándar dado por el usuario; cámbialo si se pesa una real.
+const PESO_TARIMA_KG = 30;
+
+// Tope de peso por corrugado (kg). Arriba de esto la ficha avisa, porque
+// se vuelve incómodo/riesgoso de levantar a mano.
+const LIMITE_PESO_CORRUGADO_KG = 20;
+
 // Tarima: 120 x 120 cm reales, pero la propia tarima ocupa 20 cm de alto,
 // dejando 100 cm de alto útil para estibar corrugados (confirmado con el usuario).
 const TARIMA = {

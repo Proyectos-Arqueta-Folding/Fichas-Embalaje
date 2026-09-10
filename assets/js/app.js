@@ -131,6 +131,38 @@ function pisoLabel(piso) {
 // corrugado/estrategia puedan re-renderizar sin recalcular el grosor.
 let state = null;
 
+/**
+ * Manda la ficha a imprimir dejando UNA SOLA hoja.
+ *
+ * El truco está en que, mientras se imprime, la ficha tiene que ser hija
+ * directa de <body>: así el CSS de impresión puede apagar todo lo demás
+ * con `body.imprimiendo > *:not(#print-ficha) { display: none }` sin
+ * depender de cómo esté anidado el DOM. Antes se usaba
+ * `visibility: hidden`, que oculta pero conserva el espacio, y por eso el
+ * PDF salía con varias hojas en blanco.
+ *
+ * Al terminar se devuelve a su lugar para no romper el re-render.
+ */
+function imprimirFicha() {
+  const ficha = $('#print-ficha');
+  const padreOriginal = ficha.parentNode;
+  const hermanoOriginal = ficha.nextSibling;
+
+  const restaurar = () => {
+    document.body.classList.remove('imprimiendo');
+    if (padreOriginal) padreOriginal.insertBefore(ficha, hermanoOriginal);
+    window.removeEventListener('afterprint', restaurar);
+  };
+
+  document.body.appendChild(ficha);
+  document.body.classList.add('imprimiendo');
+  window.addEventListener('afterprint', restaurar);
+
+  window.print();
+  // Respaldo: Safari y algunos navegadores no disparan `afterprint`.
+  setTimeout(restaurar, 1000);
+}
+
 /** Altura en cm a partir de mm, con un decimal solo si hace falta. */
 function alturaCm(mm) {
   const v = Math.round(mm / 10 * 10) / 10;
@@ -166,6 +198,35 @@ function alturaAvisoHTML(estiba, corrugado, usarExtendida) {
         <input type="checkbox" id="chk-altura-extendida" ${usarExtendida ? 'checked' : ''}>
         Usar la opción extendida — ${extendida.camas} camas, ${alturaCm(extendida.totalMm)} de bulto (${alturaCm(extendida.excesoMm)} por encima del límite)
       </label>
+    </div>
+  `;
+}
+
+/**
+ * Aviso de peso: el desglose de la tarima cargada y, si el corrugado
+ * pasa del máximo de manejo, por cuántos kilos se pasa.
+ */
+function pesoAvisoHTML(pesos, corrugadosPorTarima) {
+  if (!pesos) return '';
+  const rojo = pesos.excedeLimite;
+  return `
+    <div class="af-note" style="margin-top:14px; ${rojo
+      ? 'background:#fdeaea; border-color:#e8b4b4; color:#8a2a2a;'
+      : 'background:#eef6fb; border-color:#a9cbe4; color:#1a3f5c;'}">
+      <b>Peso</b>
+      <div style="margin-top:4px;">
+        Por corrugado: ${fmt(pesos.piezasKg, 2)} kg de piezas + ${fmt(pesos.corrugadoVacioKg, 2)} kg del corrugado
+        = <b>${fmt(pesos.brutoCorrugadoKg, 2)} kg</b>
+        ${rojo
+          ? `— <b>se pasa ${fmt(pesos.excesoKg, 2)} kg del máximo de ${pesos.limiteCorrugadoKg} kg</b>`
+          : `— <b style="color:#14603a;">dentro del máximo de ${pesos.limiteCorrugadoKg} kg</b> (margen de ${fmt(pesos.limiteCorrugadoKg - pesos.brutoCorrugadoKg, 2)} kg)`}
+      </div>
+      <div style="margin-top:4px;">
+        Tarima completa: ${fmt(pesos.tarimaVaciaKg, 2)} kg de tarima vacía
+        + ${corrugadosPorTarima} × ${fmt(pesos.brutoCorrugadoKg, 2)} kg
+        = <b>${fmt(pesos.tarimaTotalKg, 2)} kg</b>
+      </div>
+      ${rojo ? '<div style="margin-top:4px;">Para bajarlo: usa un corrugado más chico, o reduce las piezas por corrugado escogiendo otro tamaño de posteta.</div>' : ''}
     </div>
   `;
 }
@@ -336,6 +397,12 @@ function render({ scrollToScene = false } = {}) {
   const camasMostradas = usarExtendida ? estiba.camasExtendidas : estiba.camas;
   const totalMostrado = usarExtendida ? estiba.totalExtendido : estiba.total;
   const alturaElegida = usarExtendida ? estiba.extendida : estiba.segura;
+  const pesos = calcularPesos({
+    pesoPiezaG,
+    piezasPorCorrugado: estrategia.total,
+    corrugado,
+    corrugadosPorTarima: totalMostrado,
+  });
 
   const totalPostetas = estrategia.camas.reduce((s, c) => s + c.postetasPorCama, 0);
 
@@ -399,6 +466,7 @@ function render({ scrollToScene = false } = {}) {
       </div>
       ${estiba.piso.extra > 0 ? `<div class="af-note" style="margin-top:14px;">Este acomodo mezcla orientaciones: ${estiba.piso.principal} corrugados en la orientación principal + ${estiba.piso.extra} rotados 90° aprovechando la tira sobrante.</div>` : ''}
       ${alturaAvisoHTML(estiba, corrugado, usarExtendida)}
+      ${pesoAvisoHTML(pesos, totalMostrado)}
     </div>
 
     <div class="ficha">
@@ -442,9 +510,10 @@ function render({ scrollToScene = false } = {}) {
         <tr>
           <td class="label">Total de Piezas</td><td class="value" style="font-size:16px; color:var(--af-blue);">${estrategia.total} pzs</td>
           <td class="label">Peso bruto por corrugado</td>
-          <td class="value">${pesoPiezaG != null
-            ? `${fmt((pesoPiezaG * estrategia.total) / 1000 + (calcularPesoCorrugadoG(corrugado) || 0) / 1000, 2)} kg`
-              + ` <span style="font-weight:400; color:var(--af-ink-soft);">(${fmt((pesoPiezaG * estrategia.total) / 1000, 2)} piezas + ${fmt((calcularPesoCorrugadoG(corrugado) || 0) / 1000, 2)} corrugado)</span>`
+          <td class="value">${pesos
+            ? `${fmt(pesos.brutoCorrugadoKg, 2)} kg`
+              + ` <span style="font-weight:400; color:var(--af-ink-soft);">(${fmt(pesos.piezasKg, 2)} piezas + ${fmt(pesos.corrugadoVacioKg, 2)} corrugado)</span>`
+              + (pesos.excedeLimite ? ` <span style="color:#8a2a2a;">⚠️ +${fmt(pesos.excesoKg, 2)} kg</span>` : '')
             : '— (falta ancho/alto de la lámina)'}</td>
         </tr>
         <tr>
@@ -472,7 +541,7 @@ function render({ scrollToScene = false } = {}) {
       input, corrugado, estrategia, estiba, camasMostradas, totalMostrado, pesoTotalKg, fecha,
       grosorPiezaMm, largoDobladoMm, altoDobladoMm, alturaElegida,
     });
-    window.print();
+    imprimirFicha();
   });
 
   $$('.corr-row').forEach((btn) => {
@@ -594,3 +663,7 @@ $('#btn-nueva').addEventListener('click', () => {
   $('#laminaAlto').value = '317.05';
   $('#ficha-form').requestSubmit();
 })();
+
+// Logo de la barra superior (variante clara, porque el fondo es azul marino).
+const cajaLogo = $('#af-logo');
+if (cajaLogo) cajaLogo.innerHTML = logoArquetaSVG({ alto: 40, variante: 'claro' });

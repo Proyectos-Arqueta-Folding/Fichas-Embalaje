@@ -489,6 +489,35 @@ function calcularPesoCorrugadoG(corrugado, gramaje = GRAMAJE_CORRUGADO_36ECT) {
 }
 
 /**
+ * Desglose completo de pesos, desde la pieza suelta hasta la tarima
+ * cargada. Se calcula en un solo lugar para que la pantalla y la ficha
+ * impresa no puedan discrepar.
+ *
+ * Regresa null si falta el peso de la pieza (sin medidas de lámina no
+ * hay forma de estimarlo).
+ */
+function calcularPesos({ pesoPiezaG, piezasPorCorrugado, corrugado, corrugadosPorTarima }) {
+  if (pesoPiezaG == null) return null;
+
+  const piezasKg = (pesoPiezaG * piezasPorCorrugado) / 1000;
+  const corrugadoVacioKg = (calcularPesoCorrugadoG(corrugado) || 0) / 1000;
+  const brutoCorrugadoKg = piezasKg + corrugadoVacioKg;
+  const cargaKg = brutoCorrugadoKg * corrugadosPorTarima;
+
+  return {
+    piezasKg,
+    corrugadoVacioKg,
+    brutoCorrugadoKg,
+    cargaKg,
+    tarimaVaciaKg: PESO_TARIMA_KG,
+    tarimaTotalKg: PESO_TARIMA_KG + cargaKg,
+    limiteCorrugadoKg: LIMITE_PESO_CORRUGADO_KG,
+    excedeLimite: brutoCorrugadoKg > LIMITE_PESO_CORRUGADO_KG,
+    excesoKg: Math.max(0, brutoCorrugadoKg - LIMITE_PESO_CORRUGADO_KG),
+  };
+}
+
+/**
  * Calcula cuántos corrugados caben en la tarima: acomodo 2D en el piso
  * (mezclando orientaciones si eso da más piezas) y cuántas camas de
  * corrugados caben en la altura.

@@ -614,9 +614,13 @@ function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas
   const entarimadoSvg = svgEntarimado({ corrugado, estiba, camas: camasMostradas, alturaElegida });
   const tarjetas = estrategia.camas.map((c, i) => tarjetaCama(c, i, grosorPiezaMm, corrugado)).join('');
 
-  // Peso bruto por corrugado = piezas + la propia caja de embarque.
-  const pesoCorrugadoKg = (calcularPesoCorrugadoG(corrugado) || 0) / 1000;
-  const pesoBrutoKg = pesoTotalKg != null ? pesoTotalKg + pesoCorrugadoKg : null;
+  // Desglose de pesos: pieza -> corrugado -> tarima cargada.
+  const pesos = calcularPesos({
+    pesoPiezaG: pesoTotalKg != null ? (pesoTotalKg * 1000) / estrategia.total : null,
+    piezasPorCorrugado: estrategia.total,
+    corrugado,
+    corrugadosPorTarima: totalMostrado,
+  });
 
   const leyenda = estrategia.camas.map((c, i) => `
     <span class="pf-leg">
@@ -628,13 +632,7 @@ function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas
   el.innerHTML = `
     <table class="pf-header">
       <tr>
-        <td class="pf-logo" rowspan="4">
-          <svg viewBox="0 0 40 40" class="pf-logo-svg">
-            <polygon points="20,2 36,11 20,20 4,11" fill="#70a0d0"/>
-            <polygon points="4,11 20,20 20,38 4,29" fill="#0060b0"/>
-            <polygon points="36,11 20,20 20,38 36,29" fill="#5090c0"/>
-          </svg>
-        </td>
+        <td class="pf-logo" rowspan="4">${logoArquetaSVG({ alto: 34, variante: 'oscuro' })}</td>
         <td class="pf-title" colspan="2" rowspan="1">Ficha de Embalaje</td>
         <td class="pf-meta-label">Código<br>De Producto:</td>
         <td class="pf-meta-value">${input.codigo || '—'}</td>
@@ -695,13 +693,22 @@ function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas
       <tr>
         <td class="pf-label">Caja armada:</td><td>${input.largo} X ${input.ancho} X ${input.alto} mm</td>
         <td class="pf-label">Tarima:</td><td>${corrugadoTarimaLabel()}</td>
-        <td class="pf-label">Peso Bruto*:</td><td>${pesoBrutoKg != null ? `${fmtPf(pesoBrutoKg)} kg.` : '—'}</td>
+        <td class="pf-label">Peso Bruto*:</td>
+        <td>${pesos ? `${fmtPf(pesos.brutoCorrugadoKg)} kg${
+          pesos.excedeLimite ? ` <b style="color:#c0392b;">⚠ +${fmtPf(pesos.excesoKg)} kg</b>` : ''}` : '—'}</td>
       </tr>
+      ${pesos ? `
+      <tr>
+        <td class="pf-label">Peso Tarima:</td>
+        <td colspan="3"><b>${fmtPf(pesos.tarimaTotalKg)} kg</b> = ${fmtPf(pesos.tarimaVaciaKg)} vacía + ${totalMostrado} × ${fmtPf(pesos.brutoCorrugadoKg)} kg</td>
+        <td class="pf-label">Máx. por caja:</td>
+        <td>${pesos.limiteCorrugadoKg} kg${pesos.excedeLimite ? ' <b style="color:#c0392b;">EXCEDIDO</b>' : ' ✓'}</td>
+      </tr>` : ''}
     </table>
 
     <div class="pf-footer">
-      AF-FR-PP-02 FICHA DE EMBALAJE REV. 00 — Total por tarima: ${totalMostrado} corrugados / ${totalMostrado * estrategia.total} pzas.
-      ${pesoBrutoKg != null ? `<br>*Peso Bruto por corrugado = ${fmtPf(pesoTotalKg)} kg de piezas + ${fmtPf(pesoCorrugadoKg)} kg del corrugado (36 ECT estimado en ${GRAMAJE_CORRUGADO_36ECT} g/m², pendiente de confirmar con el proveedor).` : ''}
+      AF-FR-PP-02 FICHA DE EMBALAJE REV. 01 — Total por tarima: ${totalMostrado} corrugados / ${totalMostrado * estrategia.total} pzas.
+      ${pesos ? `<br>*Peso Bruto por corrugado = ${fmtPf(pesos.piezasKg)} kg de piezas + ${fmtPf(pesos.corrugadoVacioKg)} kg del corrugado (36 ECT estimado en ${GRAMAJE_CORRUGADO_36ECT} g/m², pendiente de confirmar con el proveedor). Tarima estándar tomada como ${fmtPf(pesos.tarimaVaciaKg)} kg.${pesos.excedeLimite ? ` AVISO: el corrugado pesa ${fmtPf(pesos.excesoKg)} kg más que el máximo de ${pesos.limiteCorrugadoKg} kg.` : ''}` : ''}
       <br>Los dibujos de camas y corrugado son esquemáticos: las postetas van separadas y engrosadas a propósito para poder contarlas. Las medidas válidas son las de la tabla y las de la tarima.
     </div>
   `;
