@@ -405,8 +405,11 @@ function render({ scrollToScene = false } = {}) {
         </tr>
         <tr>
           <td class="label">Total de Piezas</td><td class="value" style="font-size:16px; color:var(--af-blue);">${estrategia.total} pzs</td>
-          <td class="label">Peso de las piezas</td>
-          <td class="value">${pesoPiezaG != null ? `${fmt((pesoPiezaG * estrategia.total) / 1000, 2)} kg (sin el corrugado)` : '— (falta ancho/alto de la lámina)'}</td>
+          <td class="label">Peso bruto por corrugado</td>
+          <td class="value">${pesoPiezaG != null
+            ? `${fmt((pesoPiezaG * estrategia.total) / 1000 + (calcularPesoCorrugadoG(corrugado) || 0) / 1000, 2)} kg`
+              + ` <span style="font-weight:400; color:var(--af-ink-soft);">(${fmt((pesoPiezaG * estrategia.total) / 1000, 2)} piezas + ${fmt((calcularPesoCorrugadoG(corrugado) || 0) / 1000, 2)} corrugado)</span>`
+            : '— (falta ancho/alto de la lámina)'}</td>
         </tr>
         <tr>
           <td class="label">Corrugados por tarima</td><td class="value">${totalMostrado}</td>

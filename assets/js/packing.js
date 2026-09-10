@@ -465,6 +465,30 @@ function calcularPesoPiezaG({ tipoCarton, material, calibre, laminaAncho, lamina
 }
 
 /**
+ * Peso de UN corrugado vacío (g), a partir del área de su plantilla
+ * plana y del gramaje del cartón corrugado.
+ *
+ * Se asume una caja RSC (la regular de solapas, que es la estándar de
+ * embarque). Su plantilla plana mide:
+ *
+ *   ancho de plantilla = 2 x (largo + ancho) + ceja de pegue
+ *   alto  de plantilla = alto + ancho
+ *     (las solapas de arriba y de abajo miden media caja cada una:
+ *      2 x ancho/2 = ancho)
+ *
+ * Las dimensiones del catálogo son INTERNAS; usarlas aquí subestima el
+ * área por unos milímetros de espesor de pared, lo cual queda muy por
+ * debajo de la incertidumbre del gramaje estimado.
+ */
+function calcularPesoCorrugadoG(corrugado, gramaje = GRAMAJE_CORRUGADO_36ECT) {
+  if (!corrugado || !gramaje) return null;
+  const anchoPlantilla = 2 * (corrugado.largo + corrugado.ancho) + CEJA_CORRUGADO_MM;
+  const altoPlantilla = corrugado.alto + corrugado.ancho;
+  const areaM2 = (anchoPlantilla * altoPlantilla) / 1e6;
+  return areaM2 * gramaje;
+}
+
+/**
  * Calcula cuántos corrugados caben en la tarima: acomodo 2D en el piso
  * (mezclando orientaciones si eso da más piezas) y cuántas camas de
  * corrugados caben en la altura. Da 2 opciones de altura: "segura"

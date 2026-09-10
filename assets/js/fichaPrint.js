@@ -4,20 +4,27 @@
  * vez de una librería de PDF — cero dependencias, cero costo, funciona
  * offline.
  *
- * Los tres diagramas son SVG isométricos generados A ESCALA a partir de
- * los números ya calculados (no son imágenes fijas ni dibujos
- * genéricos):
+ * Los tres diagramas son SVG isométricos generados a partir de los
+ * números ya calculados (no son imágenes fijas ni dibujos genéricos):
  *
- *   1. El corrugado con TODAS sus postetas dentro, cada una en su
- *      posición real, para ver cómo entran y que ninguna queda volando.
- *   2. Cada posteta POR SEPARADO y en grande, con sus medidas y la
- *      orientación que le toca dentro del corrugado.
+ *   1. El corrugado con TODAS sus postetas dentro, para ver cómo entran
+ *      y que ninguna queda volando.
+ *   2. Una tarjeta por CAMA con la cama completa: si son 11 postetas se
+ *      dibujan las 11, si son 2 se dibujan las 2.
  *   3. El entarimado: la tarima con los corrugados estibados, con las
  *      medidas rotuladas (120 x 120 cm de base y el alto real en cm).
  *
- * A diferencia del 3D de la app, estos NO giran: es hoja impresa, así
- * que la vista isométrica va fija y las medidas van escritas encima
- * para que se puedan identificar sin moverla.
+ * Dos decisiones de dibujo, pedidas expresamente por el usuario:
+ *
+ *  - Las camas y las postetas son ESQUEMÁTICAS, no a escala: van
+ *    separadas y engrosadas para que se puedan CONTAR. A escala real
+ *    una cama se ve como un bloque macizo y una posteta delgada como
+ *    una placa plana.
+ *  - Las ÚNICAS medidas dibujadas son las de la tarima, igual que en la
+ *    ficha de embalaje de ejemplo; las del corrugado hacían ruido y ya
+ *    van en la tabla de datos.
+ *
+ * A diferencia del 3D de la app, estos NO giran: es hoja impresa.
  */
 
 // ---------- Proyección isométrica ----------
@@ -222,17 +229,65 @@ const PF_CAMA_COLORES = [
   { tapa: '#fdf0e2', derecha: '#c88a1a', izquierda: '#8a5f10' },
 ];
 
+// Corrugados en kraft (el color natural del cartón).
 const PF_CORR_COLORES = [
   { tapa: '#e8d3ae', derecha: '#c49a5e', izquierda: '#9c7440' },
   { tapa: '#f0dfc2', derecha: '#d0a86e', izquierda: '#a88250' },
 ];
 
-const PF_MADERA = { tapa: '#d9b57e', derecha: '#b08a4e', izquierda: '#8a6a38' };
+// La tarima va en gris azulado, NO en color madera: en kraft se
+// confundía con los corrugados y no se distinguía dónde acaba la tarima
+// y dónde empieza la carga.
+const PF_TARIMA = { tapa: '#9db0bd', derecha: '#5f7686', izquierda: '#41576a' };
+const PF_TARIMA_TACON = { tapa: '#8299a8', derecha: '#4e6575', izquierda: '#354a5c' };
 
 /** Cuántas rayas de hoja dibujar sin que se vuelva una manchota. */
 function nHojas(piezas, denso) {
   if (denso) return 0;
   return Math.min(9, Math.max(2, piezas - 1));
+}
+
+// Separación entre postetas, como fracción del espacio que le toca a
+// cada una. A escala real las postetas quedan pegadas y una cama se ve
+// como un bloque macizo donde no se pueden contar; el objetivo de la
+// ficha es que se puedan CONTAR (si son 11, que se vean 11), así que se
+// separan a propósito. Los dibujos de camas y postetas son esquemáticos.
+const SEP_APILADO = 0.26; // a lo largo del eje de apilado
+const SEP_REJILLA = 0.10; // entre celdas de la cuadrícula del piso
+
+/**
+ * Aplica la separación a un cuboide de posteta: lo encoge dentro de su
+ * espacio, más en el eje de apilado (donde importa contarlas) que en
+ * los otros dos.
+ */
+function separarPosteta(pos, size, ejeAp) {
+  const p = pos.slice(), s = size.slice();
+  for (let a = 0; a < 3; a++) {
+    const sep = a === ejeAp ? SEP_APILADO : SEP_REJILLA;
+    p[a] = pos[a] + size[a] * sep / 2;
+    s[a] = size[a] * (1 - sep);
+  }
+  return { pos: p, size: s };
+}
+
+/**
+ * Espesor de posteta que se DIBUJA (no el real). A escala una posteta de
+ * 10 hojas de 12 pt mide 3 mm contra una hoja de 386 mm: se ve como una
+ * placa plana y no hay forma de contar cuántas son. Aquí se engorda
+ * hasta que se vea, con dos topes que mantienen el dibujo creíble:
+ *
+ *  - Nunca queda MÁS DELGADA que la real.
+ *  - Nunca hace que la cama se salga del corrugado: el máximo es lo que
+ *    le toca a cada posteta del espacio que la cama tiene disponible en
+ *    su eje de apilado. Como n x real siempre cabe, este tope siempre
+ *    es >= el espesor real.
+ */
+function espesorPostetaDibujo(cama, grosorPiezaMm, corrugado) {
+  const real = cama.piezasPorPosteta * grosorPiezaMm;
+  const n = Math.max(1, cama.postetasEnEje || 1);
+  const disponible = corrugado[cama.ejeApilado] - cama.origen[cama.ejeApilado];
+  const deseado = Math.max(real, Math.min(cama.dimA, cama.dimB) * 0.13);
+  return Math.min(deseado, disponible / n);
 }
 
 /**
@@ -241,11 +296,10 @@ function nHojas(piezas, denso) {
  * apilado, la cuadrícula principal y luego el grupo rotado de la tira
  * sobrante. Llama a `fn({pos, size})` con cada una.
  */
-function recorrerPostetas(cama, grosorPiezaMm, fn) {
+function recorrerPostetas(cama, alturaPosteta, fn) {
   const ejeAp = EJE_IDX[cama.ejeApilado];
   const ejeA = EJE_IDX[cama.ejeA];
   const ejeB = EJE_IDX[cama.ejeB];
-  const alturaPosteta = cama.piezasPorPosteta * grosorPiezaMm;
   const nPostetas = cama.postetasEnEje || 1;
 
   const emitir = (inicio, offA, sizeA, sizeB, i, j) => {
@@ -311,25 +365,18 @@ function svgCorrugadoConPostetas({ corrugado, estrategia, grosorPiezaMm }) {
   estrategia.camas.forEach((cama, idx) => {
     const colores = PF_CAMA_COLORES[idx % PF_CAMA_COLORES.length];
     const hojas = nHojas(cama.piezasPorPosteta, denso);
-    recorrerPostetas(cama, grosorPiezaMm, ({ pos, size, ejeAp }) => {
-      // Se encoge un pelo cada posteta para que se lean como grupos
-      // separados y no como un bloque macizo.
-      const g = 0.06;
-      const pos2 = pos.map((v, i) => v + size[i] * g / 2);
-      const size2 = size.map((v) => v * (1 - g));
-      cuboIso(esc, { pos: pos2, size: size2, colores, ejeApilado: ejeAp, hojas, sw: denso ? 0.35 : 0.55 });
+    const espesor = espesorPostetaDibujo(cama, grosorPiezaMm, corrugado);
+    recorrerPostetas(cama, espesor, ({ pos, size, ejeAp }) => {
+      const sep = separarPosteta(pos, size, ejeAp);
+      cuboIso(esc, { pos: sep.pos, size: sep.size, colores, ejeApilado: ejeAp, hojas, sw: denso ? 0.35 : 0.55 });
     });
   });
 
   alambreIso(esc, [0, 0, 0], [largo, ancho, alto]);
 
-  // Medidas del corrugado. El alto se acota en la arista de la silueta
-  // derecha (largo, 0) y no en la esquina frontal, que cae en medio del
-  // dibujo (ver la nota en svgEntarimado).
-  acotarIso(esc, [0, ancho, 0], [largo, ancho, 0], `${largo} mm`, [-16, 20]);
-  acotarIso(esc, [largo, 0, 0], [largo, ancho, 0], `${ancho} mm`, [16, 20]);
-  acotarIso(esc, [largo, 0, 0], [largo, 0, alto], `${alto} mm`, [26, 0]);
-
+  // Sin cotas: las medidas del corrugado ya van en la tabla de datos y
+  // aquí solo hacían ruido. Las únicas medidas dibujadas en la ficha son
+  // las de la tarima, igual que en la ficha de embalaje de ejemplo.
   return esc.render('pf-svg');
 }
 
@@ -338,75 +385,57 @@ function svgCorrugadoConPostetas({ corrugado, estrategia, grosorPiezaMm }) {
  * toca en el corrugado y sus tres medidas: la hoja doblada (dimA x dimB)
  * y el alto de la pila (piezas x grosor).
  */
-function svgPostetaSola(cama, grosorPiezaMm) {
-  const ejeAp = EJE_IDX[cama.ejeApilado];
-  const ejeA = EJE_IDX[cama.ejeA];
-  const ejeB = EJE_IDX[cama.ejeB];
-  const alturaPosteta = cama.piezasPorPosteta * grosorPiezaMm;
+function svgCamaCompleta(cama, grosorPiezaMm, corrugado, idxCama) {
+  const espesor = espesorPostetaDibujo(cama, grosorPiezaMm, corrugado);
+  const colores = PF_CAMA_COLORES[idxCama % PF_CAMA_COLORES.length];
+  const hojas = nHojas(cama.piezasPorPosteta, contarPostetas({ camas: [cama] }) > 150);
 
-  // Una posteta de 10 hojas de 12 pt mide 3 mm contra una hoja de 386 mm:
-  // dibujada a escala se ve como una placa plana y no se entiende que es
-  // una pila. Cuando queda así de delgada se dibuja con el espesor
-  // EXAGERADO para que se lea como pila; la cota sigue diciendo la medida
-  // real y el dibujo se marca como fuera de escala para que nadie mida
-  // sobre él.
-  const ladoMenor = Math.min(cama.dimA, cama.dimB);
-  const espesorMinimo = ladoMenor * 0.13;
-  const exagerado = alturaPosteta < espesorMinimo;
-  const espesorDibujo = exagerado ? espesorMinimo : alturaPosteta;
+  // Primero se recolectan las postetas para poder medir la cama y elegir
+  // la escala que la deja del tamaño de la tarjeta.
+  const bloques = [];
+  recorrerPostetas(cama, espesor, ({ pos, size, ejeAp }) => bloques.push({ ...separarPosteta(pos, size, ejeAp), ejeAp }));
 
-  const size = [];
-  size[ejeAp] = espesorDibujo;
-  size[ejeA] = cama.dimA;
-  size[ejeB] = cama.dimB;
+  const min = [Infinity, Infinity, Infinity];
+  const max = [-Infinity, -Infinity, -Infinity];
+  bloques.forEach(({ pos, size }) => {
+    for (let a = 0; a < 3; a++) {
+      if (pos[a] < min[a]) min[a] = pos[a];
+      if (pos[a] + size[a] > max[a]) max[a] = pos[a] + size[a];
+    }
+  });
+  const ext = [max[0] - min[0], max[1] - min[1], max[2] - min[2]];
 
-  // Las medidas REALES por eje, para las cotas.
-  const real = [];
-  real[ejeAp] = alturaPosteta;
-  real[ejeA] = cama.dimA;
-  real[ejeB] = cama.dimB;
-
-  const s = 150 / ((size[0] + size[1]) * ISO_COS);
+  const s = 170 / Math.max(1, (ext[0] + ext[1]) * ISO_COS);
   const esc = crearEscena(s);
 
-  cuboIso(esc, {
-    pos: [0, 0, 0], size,
-    colores: PF_CAMA_COLORES[0],
-    ejeApilado: ejeAp,
-    hojas: nHojas(cama.piezasPorPosteta, false),
-    sw: 0.7,
+  // Se recorre al origen para que la tarjeta no herede el offset que
+  // traía la cama dentro del corrugado.
+  bloques.forEach(({ pos, size, ejeAp }) => {
+    cuboIso(esc, {
+      pos: [pos[0] - min[0], pos[1] - min[1], pos[2] - min[2]],
+      size, colores, ejeApilado: ejeAp, hojas, sw: 0.5,
+    });
   });
 
-  // Acotar las 3 aristas: largo (X), ancho (Y) y alto (Z) de la pila.
-  acotarIso(esc, [0, size[1], 0], [size[0], size[1], 0], fmtMm(real[0]), [-10, 14], { clase: 'pf-dim-small' });
-  acotarIso(esc, [size[0], 0, 0], [size[0], size[1], 0], fmtMm(real[1]), [10, 14], { clase: 'pf-dim-small' });
-  acotarIso(esc, [size[0], 0, 0], [size[0], 0, size[2]], fmtMm(real[2]), [16, 0], { clase: 'pf-dim-small' });
-
-  return { svg: esc.render('pf-svg-posteta'), exagerado };
+  return esc.render('pf-svg-posteta');
 }
 
 const ORDINAL_CAMA = ['1ra', '2da', '3ra', '4ta', '5ta'];
 
-/** Tarjeta de una posteta: el dibujo + sus datos, compacta. */
-function tarjetaPosteta(cama, index, grosorPiezaMm) {
-  const alturaPosteta = cama.piezasPorPosteta * grosorPiezaMm;
+/** Tarjeta de una cama: el dibujo de la cama completa + sus datos. */
+function tarjetaCama(cama, index, grosorPiezaMm, corrugado) {
   const color = PF_CAMA_COLORES[index % PF_CAMA_COLORES.length].derecha;
-  const { svg, exagerado } = svgPostetaSola(cama, grosorPiezaMm);
   return `
     <div class="pf-posteta">
       <div class="pf-posteta-tit" style="border-left:4px solid ${color};">
         ${ORDINAL_CAMA[index] || `${index + 1}a`} CAMA · ${cama.orientacionLabel}
       </div>
       <div class="pf-posteta-cuerpo">
-        <div class="pf-posteta-dib">
-          ${svg}
-          ${exagerado ? '<div class="pf-nota-escala">espesor exagerado<br>(cotas reales)</div>' : ''}
-        </div>
+        <div class="pf-posteta-dib">${svgCamaCompleta(cama, grosorPiezaMm, corrugado, index)}</div>
         <table class="pf-posteta-datos">
+          <tr><td>Postetas</td><td><b>${cama.postetasPorCama}</b></td></tr>
           <tr><td>Piezas por posteta</td><td><b>${cama.piezasPorPosteta}</b></td></tr>
-          <tr><td>Postetas en la cama</td><td><b>${cama.postetasPorCama}</b></td></tr>
           <tr><td>Acomodo</td><td>${cama.cols}×${cama.filas} × ${cama.postetasEnEje}${cama.extra > 0 ? ` +${cama.extra}g` : ''}</td></tr>
-          <tr><td>Pila</td><td>${fmtMm(alturaPosteta)}</td></tr>
           <tr><td>Piezas de la cama</td><td><b>${cama.total}</b></td></tr>
         </table>
       </div>
@@ -436,17 +465,17 @@ function svgEntarimado({ corrugado, estiba, camas }) {
   const grosorTabla = Math.round(altoT * 0.17);
   const altoTacon = altoT - grosorTabla * 2;
 
-  cuboIso(esc, { pos: [0, 0, 0], size: [largoT, anchoT, grosorTabla], colores: PF_MADERA, sw: 0.8, capa: 0 });
+  cuboIso(esc, { pos: [0, 0, 0], size: [largoT, anchoT, grosorTabla], colores: PF_TARIMA, sw: 0.8, capa: 0 });
   const bandas = [0, (anchoT - anchoT * 0.16) / 2, anchoT - anchoT * 0.16];
   bandas.forEach((y0, i) => {
     cuboIso(esc, {
       pos: [0, y0, grosorTabla],
       size: [largoT, anchoT * 0.16, altoTacon],
-      colores: { tapa: '#c9a469', derecha: '#a07c46', izquierda: '#7d5f31' },
+      colores: PF_TARIMA_TACON,
       sw: 0.8, capa: 1 + i,
     });
   });
-  cuboIso(esc, { pos: [0, 0, altoT - grosorTabla], size: [largoT, anchoT, grosorTabla], colores: PF_MADERA, sw: 0.8, capa: 4 });
+  cuboIso(esc, { pos: [0, 0, altoT - grosorTabla], size: [largoT, anchoT, grosorTabla], colores: PF_TARIMA, sw: 0.8, capa: 4 });
 
   // ---- Corrugados estibados ----
   for (let k = 0; k < camas; k++) {
@@ -498,7 +527,11 @@ function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas
 
   const empaqueSvg = svgCorrugadoConPostetas({ corrugado, estrategia, grosorPiezaMm });
   const entarimadoSvg = svgEntarimado({ corrugado, estiba, camas: camasMostradas });
-  const tarjetas = estrategia.camas.map((c, i) => tarjetaPosteta(c, i, grosorPiezaMm)).join('');
+  const tarjetas = estrategia.camas.map((c, i) => tarjetaCama(c, i, grosorPiezaMm, corrugado)).join('');
+
+  // Peso bruto por corrugado = piezas + la propia caja de embarque.
+  const pesoCorrugadoKg = (calcularPesoCorrugadoG(corrugado) || 0) / 1000;
+  const pesoBrutoKg = pesoTotalKg != null ? pesoTotalKg + pesoCorrugadoKg : null;
 
   const leyenda = estrategia.camas.map((c, i) => `
     <span class="pf-leg">
@@ -552,7 +585,7 @@ function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas
     </div>
 
     <div class="pf-postetas-bloque">
-      <h4>Postetas por separado — de ${estrategia.piezasPorPosteta} piezas cada una</h4>
+      <h4>Camas completas — postetas de ${estrategia.piezasPorPosteta} piezas</h4>
       <div class="pf-postetas">${tarjetas}</div>
     </div>
 
@@ -570,13 +603,14 @@ function renderPrintFicha({ input, corrugado, estrategia, estiba, camasMostradas
       <tr>
         <td class="pf-label">Caja armada:</td><td>${input.largo} X ${input.ancho} X ${input.alto} mm</td>
         <td class="pf-label">Tarima:</td><td>${corrugadoTarimaLabel()}</td>
-        <td class="pf-label">Peso Piezas*:</td><td>${pesoTotalKg != null ? `${fmtPf(pesoTotalKg)} kg.` : '—'}</td>
+        <td class="pf-label">Peso Bruto*:</td><td>${pesoBrutoKg != null ? `${fmtPf(pesoBrutoKg)} kg.` : '—'}</td>
       </tr>
     </table>
 
     <div class="pf-footer">
       AF-FR-PP-02 FICHA DE EMBALAJE REV. 00 — Total por tarima: ${totalMostrado} corrugados / ${totalMostrado * estrategia.total} pzas.
-      ${pesoTotalKg != null ? '<br>*Peso Piezas = solo el cartón + tinta/barniz de las piezas; falta sumar el peso del propio corrugado para el Peso Bruto real.' : ''}
+      ${pesoBrutoKg != null ? `<br>*Peso Bruto por corrugado = ${fmtPf(pesoTotalKg)} kg de piezas + ${fmtPf(pesoCorrugadoKg)} kg del corrugado (36 ECT estimado en ${GRAMAJE_CORRUGADO_36ECT} g/m², pendiente de confirmar con el proveedor).` : ''}
+      <br>Los dibujos de camas y corrugado son esquemáticos: las postetas van separadas y engrosadas a propósito para poder contarlas. Las medidas válidas son las de la tabla y las de la tarima.
     </div>
   `;
 }

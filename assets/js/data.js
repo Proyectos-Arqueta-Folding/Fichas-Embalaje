@@ -67,6 +67,32 @@ const GRAMAJE_FLAUTA_ESTIMADO = 87;
 // típico ~250 g/m2 + flauta ~87 g/m2).
 const GRAMAJE_MICROCORRUGADO_ESTIMADO = 250 + GRAMAJE_FLAUTA_ESTIMADO;
 
+// Gramaje del CORRUGADO (la caja de embarque), para poder dar peso bruto.
+//
+// El usuario pidió 36 ECT. Ojo: 36 ECT no es un grado publicado — los
+// que aparecen en las tablas de la industria son 32, 40, 44 y 48 ECT —
+// así que este número está CALCULADO, no copiado de una tabla:
+//
+//   Receta típica de 32 ECT en flauta C: liners de 42 lb/MSF y medium
+//   de 26 lb/MSF. Convertido (1 lb/MSF = 4.8825 g/m2) son liners de
+//   205 g/m2 y medium de 127 g/m2, y con el factor de consumo de la
+//   flauta C (1.43, porque el medium va ondulado y consume más papel):
+//     32 ECT = 205 + 205 + 127 x 1.43 = 592 g/m2
+//
+//   36 ECT es ~12.5% más resistente, que se logra subiendo los liners
+//   (el medium se queda igual). Con liners de 47 lb/MSF = 229 g/m2:
+//     36 ECT = 229 + 229 + 127 x 1.43 = 640 g/m2
+//
+// Es un ESTIMADO razonable (cae en el rango normal de 500-700 g/m2 de
+// un single wall flauta C), no un dato del proveedor: el ECT real
+// depende de la calidad del papel de cada molino. Reemplazar en cuanto
+// haya ficha técnica del corrugado.
+const GRAMAJE_CORRUGADO_36ECT = 640;
+
+// Pestaña de pegue de la caja de embarque (mm), para el área de la
+// plantilla plana. Valor típico de la industria.
+const CEJA_CORRUGADO_MM = 40;
+
 // Tarima: 120 x 120 cm reales, pero la propia tarima ocupa 20 cm de alto,
 // dejando 100 cm de alto útil para estibar corrugados (confirmado con el usuario).
 const TARIMA = {
