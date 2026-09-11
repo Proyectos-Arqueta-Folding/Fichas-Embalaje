@@ -143,6 +143,8 @@ let state = null;
  *
  * Al terminar se devuelve a su lugar para no romper el re-render.
  */
+const ICONO_DESCARGA = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;"><path d="M12 3v12"/><path d="M7 11l5 5 5-5"/><path d="M4 20h16"/></svg>';
+
 /**
  * Nombre con el que el navegador propone guardar el PDF: primero el
  * código y luego el artículo. Sale del <title> del documento, así que la
@@ -579,9 +581,11 @@ function render({ scrollToScene = false } = {}) {
 
     <div class="af-card">
       <div class="af-actions">
-        <button class="af-btn af-btn-primary" id="btn-pdf">Exportar PDF (ficha de embalaje)</button>
+        <button class="af-btn af-btn-primary" id="btn-descargar">${ICONO_DESCARGA} Descargar PDF</button>
+        <button class="af-btn af-btn-ghost" id="btn-pdf">Imprimir</button>
         <button class="af-btn af-btn-ghost" id="btn-guardar">Guardar en el historial</button>
       </div>
+      <div id="descarga-estado"></div>
       <div id="guardar-estado"></div>
     </div>
   `;
@@ -591,13 +595,42 @@ function render({ scrollToScene = false } = {}) {
   });
   renderPalletScene($('#scene3d-pallet'), { corrugado, estiba, useExtendida: usarExtendida });
 
-  $('#btn-pdf').addEventListener('click', () => {
+  // Deja la ficha imprimible armada y lista en #print-ficha.
+  const prepararFicha = () => {
     const pesoTotalKg = pesoPiezaG != null ? (pesoPiezaG * estrategia.total) / 1000 : null;
     renderPrintFicha({
       input, corrugado, estrategia, estiba, camasMostradas, totalMostrado, pesoTotalKg, fecha,
       grosorPiezaMm, largoDobladoMm, altoDobladoMm, alturaElegida,
     });
+  };
+
+  $('#btn-pdf').addEventListener('click', () => {
+    prepararFicha();
     imprimirFicha(nombreArchivoFicha(input));
+  });
+
+  $('#btn-descargar').addEventListener('click', async () => {
+    const btn = $('#btn-descargar');
+    const estado = $('#descarga-estado');
+    const etiqueta = btn.innerHTML;
+    btn.disabled = true;
+    estado.innerHTML = '<div class="ocr-estado ocr-trabajando"><span class="ocr-spinner"></span>Armando el PDF…</div>';
+    try {
+      prepararFicha();
+      const r = await descargarFichaPDF(nombreArchivoFicha(input));
+      estado.innerHTML = `<div class="ocr-estado ocr-listo">
+        Descargado <b>${nombreArchivoFicha(input)}.pdf</b> — 1 página, ${r.mb.toFixed(1)} MB.
+      </div>`;
+    } catch (err) {
+      // Si la descarga no se puede armar, queda el camino de siempre.
+      estado.innerHTML = `<div class="ocr-estado ocr-aviso">
+        No se pudo armar el PDF: ${err.message}<br>
+        Usa <b>Imprimir</b> y ahí escoge "Guardar como PDF".
+      </div>`;
+    } finally {
+      btn.disabled = false;
+      btn.innerHTML = etiqueta;
+    }
   });
 
   $('#btn-guardar').addEventListener('click', async () => {

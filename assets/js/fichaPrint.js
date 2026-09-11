@@ -51,6 +51,20 @@ function isoPt(p, s) {
 }
 
 /**
+ * Estilos de las cotas, DENTRO del propio <svg>.
+ *
+ * Son los mismos que están en styles.css, repetidos a propósito: al
+ * descargar el PDF el dibujo se serializa como un SVG independiente y
+ * ahí ya no llega la hoja de estilos de la página. Sin esto, las medidas
+ * salían en negro y con el tamaño por omisión.
+ */
+const SVG_ESTILOS = '<style>'
+  + '.pf-dim { font-size: 8.5px; font-weight: 700; fill: #8a5a2a; font-family: Arial, sans-serif; }'
+  + '.pf-dim-small { font-size: 7px; fill: #8a5a2a; font-family: Arial, sans-serif; }'
+  + '.pf-dim-exceso { font-size: 8px; font-weight: 700; fill: #c0392b; font-family: Arial, sans-serif; }'
+  + '</style>';
+
+/**
  * Escena isométrica: acumula piezas con su profundidad, lleva el
  * bounding box de lo dibujado y al final arma el <svg> con un viewBox
  * ajustado al contenido (así el dibujo siempre llena la hoja sin que yo
@@ -97,7 +111,7 @@ function crearEscena(escala) {
       const w = this.maxX - this.minX + pad * 2;
       const h = this.maxY - this.minY + pad * 2;
       return `<svg viewBox="${x.toFixed(1)} ${y.toFixed(1)} ${w.toFixed(1)} ${h.toFixed(1)}"`
-        + ` xmlns="http://www.w3.org/2000/svg" class="${clase}">${orden}</svg>`;
+        + ` xmlns="http://www.w3.org/2000/svg" class="${clase}">${SVG_ESTILOS}${orden}</svg>`;
     },
   };
 }
