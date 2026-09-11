@@ -403,9 +403,18 @@ function svgCorrugadoConPostetas({ corrugado, estrategia, grosorPiezaMm }) {
 
   alambreIso(esc, [0, 0, 0], [largo, ancho, alto]);
 
-  // Sin cotas: las medidas del corrugado ya van en la tabla de datos y
-  // aquí solo hacían ruido. Las únicas medidas dibujadas en la ficha son
-  // las de la tarima, igual que en la ficha de embalaje de ejemplo.
+  // ---- Medidas del corrugado ----
+  // Solo las TRES de la caja: largo, ancho y alto. Las medidas internas
+  // de las camas se quedan fuera a propósito (hacían mucho ruido), igual
+  // que en la ficha de embalaje de ejemplo.
+  //
+  // Van en las aristas de la SILUETA, no en la esquina frontal: con esta
+  // proyección esa esquina cae justo en medio del dibujo. El borde
+  // derecho es (largo, 0) y el izquierdo es (0, ancho).
+  acotarIso(esc, [0, ancho, 0], [largo, ancho, 0], `${largo} mm`, [-20, 26]);
+  acotarIso(esc, [largo, 0, 0], [largo, ancho, 0], `${ancho} mm`, [20, 26]);
+  acotarIso(esc, [largo, 0, 0], [largo, 0, alto], `${alto} mm`, [30, 0]);
+
   return esc.render('pf-svg');
 }
 
