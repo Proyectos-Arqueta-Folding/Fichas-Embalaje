@@ -57,6 +57,11 @@ function mmTxt(v, unidad = ' mm') {
   return `${txt}${unidad}`;
 }
 
+/** Lo mismo pero en cm, que es como se miden las tarimas. */
+function cmTxt(vMm, unidad = ' cm') {
+  return mmTxt(vMm / 10, unidad);
+}
+
 /**
  * Monta la escena (perspectiva + arrastre + auto-rotación) y le inyecta el
  * HTML que regrese buildInnerHTML(). Reusable por cualquier vista 3D.
@@ -421,11 +426,11 @@ function renderPalletScene(mountEl, { corrugado, estiba, useExtendida = false })
   // medida del corrugado que se está estibando.
   const cimaY = palletH / 2 + camas * boxH;
   const cotas = [
-    cota(0, -palletH / 2, palletD / 2, `Largo ${mmTxt(largoTarimaMm)}`, 'tarima'),
-    cota(palletW / 2, -palletH / 2, 0, `Ancho ${mmTxt(anchoTarimaMm)}`, 'tarima'),
+    cota(0, -palletH / 2, palletD / 2, `Largo ${cmTxt(largoTarimaMm)}`, 'tarima'),
+    cota(palletW / 2, -palletH / 2, 0, `Ancho ${cmTxt(anchoTarimaMm)}`, 'tarima'),
     cota(-palletW / 2, (cimaY - palletH / 2) / 2, palletD / 2,
-      `Alto total ${mmTxt(totalAlto)}`,
-      `tarima ${mmTxt(altoTarimaMm)} + ${camas} camas`),
+      `Alto total ${cmTxt(totalAlto)}`,
+      `tarima ${cmTxt(altoTarimaMm)} + ${camas} camas`),
     cota(0, cimaY + 14, 0,
       `Corrugado ${corrugado.largo} × ${corrugado.ancho} × ${mmTxt(corrugado.alto)}`,
       `${estiba.piso.total} por cama · ${camas * estiba.piso.total} en la tarima`, 'caja'),
