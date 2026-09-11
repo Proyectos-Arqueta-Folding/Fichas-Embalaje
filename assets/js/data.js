@@ -17,7 +17,7 @@ const CORRUGADOS = [
   { id: 'AFCR-0005', largo: 530, ancho: 360, alto: 230 },
   { id: 'AFCR-0006', largo: 595, ancho: 475, alto: 175 },
   { id: 'AFCR-0008', largo: 410, ancho: 335, alto: 275 },
-  { id: 'AFCR-0010', largo: 475, ancho: 395, alto: 275 },
+  { id: 'AFCR-0010', largo: 475, ancho: 395, alto: 198 },
   { id: 'AFCR-0009', largo: 373, ancho: 335, alto: 252 },
   { id: 'AFCR-0011', largo: 470, ancho: 410, alto: 170 },
 ];
