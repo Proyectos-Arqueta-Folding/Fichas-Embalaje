@@ -143,16 +143,33 @@ let state = null;
  *
  * Al terminar se devuelve a su lugar para no romper el re-render.
  */
-function imprimirFicha() {
+/**
+ * Nombre con el que el navegador propone guardar el PDF: primero el
+ * código y luego el artículo. Sale del <title> del documento, así que la
+ * única forma de controlarlo es cambiarlo mientras dura la impresión.
+ */
+function nombreArchivoFicha({ codigo, articulo } = {}) {
+  // Los caracteres que Windows y macOS no aceptan en un nombre de
+  // archivo; si se dejan, el navegador los cambia por guiones bajos.
+  const limpio = (t) => String(t || '').replace(/[\\/:*?"<>|]/g, ' ').replace(/\s+/g, ' ').trim();
+  const partes = [limpio(codigo), limpio(articulo)].filter(Boolean);
+  return partes.length ? partes.join(' - ') : 'Ficha de Embalaje';
+}
+
+function imprimirFicha(nombreArchivo) {
   const ficha = $('#print-ficha');
   const padreOriginal = ficha.parentNode;
   const hermanoOriginal = ficha.nextSibling;
+  const tituloOriginal = document.title;
 
   const restaurar = () => {
     document.body.classList.remove('imprimiendo');
     if (padreOriginal) padreOriginal.insertBefore(ficha, hermanoOriginal);
+    document.title = tituloOriginal;
     window.removeEventListener('afterprint', restaurar);
   };
+
+  if (nombreArchivo) document.title = nombreArchivo;
 
   document.body.appendChild(ficha);
   document.body.classList.add('imprimiendo');
@@ -580,7 +597,7 @@ function render({ scrollToScene = false } = {}) {
       input, corrugado, estrategia, estiba, camasMostradas, totalMostrado, pesoTotalKg, fecha,
       grosorPiezaMm, largoDobladoMm, altoDobladoMm, alturaElegida,
     });
-    imprimirFicha();
+    imprimirFicha(nombreArchivoFicha(input));
   });
 
   $('#btn-guardar').addEventListener('click', async () => {
