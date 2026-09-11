@@ -569,7 +569,9 @@ function render({ scrollToScene = false } = {}) {
     </div>
   `;
 
-  renderProductScene($('#scene3d-product'), { corrugado, estrategia, grosorPiezaMm });
+  renderProductScene($('#scene3d-product'), {
+    corrugado, estrategia, grosorPiezaMm, largoDobladoMm, altoDobladoMm,
+  });
   renderPalletScene($('#scene3d-pallet'), { corrugado, estiba, useExtendida: usarExtendida });
 
   $('#btn-pdf').addEventListener('click', () => {

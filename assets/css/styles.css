@@ -457,6 +457,7 @@ html, body {
 /* ---------- 3D scene ---------- */
 .scene3d-wrap { position: relative; }
 .scene3d-perspective {
+  position: relative; /* marco de referencia de .lbl3d-capa */
   height: 380px;
   display: flex;
   align-items: center;
@@ -500,6 +501,37 @@ html, body {
   border-radius: 999px;
   pointer-events: none;
 }
+/* ---------- Cotas de las escenas 3D ----------
+   Van en una capa 2D ENCIMA de la escena, no dentro de ella: box3d.js
+   proyecta el ancla de cada cota a coordenadas de pantalla en cada
+   cuadro. Metidas en el 3D salian de canto, las tapaban las cajas de
+   enfrente y al girar se encimaban entre si. */
+.lbl3d-capa {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+.lbl3d {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  white-space: nowrap;
+  pointer-events: none;
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1.25;
+  text-align: center;
+  padding: 3px 9px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.92);
+  box-shadow: 0 1px 4px rgba(11,42,74,0.18);
+}
+.lbl3d-corr { color: #8a5a2a; border: 1px solid rgba(138,90,42,0.45); }
+.lbl3d-caja { color: var(--af-blue); border: 1px solid rgba(0,96,176,0.4); }
+.lbl3d-sub { display: block; font-size: 9.5px; font-weight: 600; opacity: .75; }
+
 .cama-legend { display: flex; gap: 16px; margin-top: 10px; font-size: 12.5px; }
 .cama-legend .dot,
 .ficha-data-table .dot { display: inline-block; width: 11px; height: 11px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }

@@ -37,27 +37,124 @@ function anchored(cx, cy, cz, innerHTML) {
 }
 
 /**
+ * Cota anclada a un punto del mundo (px de escena, misma convención que
+ * `anchored`: Y hacia arriba).
+ *
+ * OJO: las cotas NO van dentro de la escena 3D. Metidas ahí salían de
+ * canto (hay que contra-rotarlas), las tapaban las postetas de enfrente y
+ * al girar se encimaban unas con otras. En vez de eso se proyectan a mano
+ * a una capa 2D encima de la escena (ver proyectarCotas), que además las
+ * separa empujándolas hacia afuera del bulto.
+ */
+function cota(cx, cy, cz, texto, sub = '', tipo = 'corr') {
+  return { x: cx, y: cy, z: cz, texto, sub, tipo };
+}
+
+/** 1234.5 -> "1,234.5 mm"; sin decimales cuando es entero. */
+function mmTxt(v, unidad = ' mm') {
+  const n = Math.round(v * 10) / 10;
+  const txt = n.toLocaleString('es-MX', { maximumFractionDigits: 1 });
+  return `${txt}${unidad}`;
+}
+
+/**
  * Monta la escena (perspectiva + arrastre + auto-rotación) y le inyecta el
  * HTML que regrese buildInnerHTML(). Reusable por cualquier vista 3D.
  */
-function mountScene(mountEl, innerHTML, { startRy = 35, startRx = -22 } = {}) {
+// Misma perspectiva que .scene3d-perspective en el CSS. Si se cambia
+// allá, hay que cambiarla aquí: la proyección de las cotas la usa.
+const PERSPECTIVA_PX = 900;
+
+function mountScene(mountEl, innerHTML, { startRy = 35, startRx = -22, cotas = [] } = {}) {
+  const cotasHTML = cotas.map((c) => `
+    <div class="lbl3d lbl3d-${c.tipo}">${c.texto}${c.sub ? `<span class="lbl3d-sub">${c.sub}</span>` : ''}</div>
+  `).join('');
+
   mountEl.innerHTML = `
     <div class="scene3d-wrap">
       <div class="scene3d-perspective">
         <div class="scene3d" id="scene3d-inner-${Math.random().toString(36).slice(2)}">
           ${innerHTML}
         </div>
+        <div class="lbl3d-capa">${cotasHTML}</div>
       </div>
       <div class="scene3d-hint">Arrastra para girar</div>
     </div>
   `;
 
   const scene = mountEl.querySelector('.scene3d');
+  const capa = mountEl.querySelector('.lbl3d-capa');
+  const etiquetas = Array.from(mountEl.querySelectorAll('.lbl3d'));
   let rx = startRx, ry = startRy;
   let dragging = false, lastX = 0, lastY = 0;
   let autoRotate = true;
 
-  function apply() { scene.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`; }
+  /**
+   * Coloca cada cota donde cae su ancla en pantalla. La escena aplica
+   * `rotateX(rx) rotateY(ry)`, o sea primero Ry y luego Rx, y encima la
+   * perspectiva; aquí se repite esa cuenta a mano.
+   *
+   * Después de proyectar, la etiqueta se empuja un poco hacia afuera
+   * (alejándose del centro del bulto) para que no quede encima del dibujo
+   * ni pegada a la de al lado.
+   */
+  function proyectarCotas() {
+    if (!etiquetas.length) return;
+    const cosY = Math.cos(ry * Math.PI / 180), sinY = Math.sin(ry * Math.PI / 180);
+    const cosX = Math.cos(rx * Math.PI / 180), sinX = Math.sin(rx * Math.PI / 180);
+
+    const pos = etiquetas.map((el, i) => {
+      const c = cotas[i];
+      // El eje Y de CSS crece hacia abajo (igual que en `anchored`).
+      const x0 = c.x, y0 = -c.y, z0 = c.z;
+      const x1 = x0 * cosY + z0 * sinY;
+      const z1 = -x0 * sinY + z0 * cosY;
+      const y2 = y0 * cosX - z1 * sinX;
+      const z2 = y0 * sinX + z1 * cosX;
+
+      const k = PERSPECTIVA_PX / Math.max(1, PERSPECTIVA_PX - z2);
+      let sx = x1 * k, sy = y2 * k;
+
+      const r = Math.hypot(sx, sy);
+      if (r > 1) { sx += (sx / r) * 28; sy += (sy / r) * 28; }
+      return { sx, sy, w: el.offsetWidth, h: el.offsetHeight };
+    });
+
+    // Separar las que se encimen. Girando el bulto, dos anclas pueden
+    // caer en el mismo punto de la pantalla; sin esto una cota queda
+    // tapada por otra justo cuando se quiere leer.
+    for (let pasada = 0; pasada < 3; pasada++) {
+      for (let i = 0; i < pos.length; i++) {
+        for (let j = i + 1; j < pos.length; j++) {
+          const a = pos[i], b = pos[j];
+          const penX = (a.w + b.w) / 2 + 4 - Math.abs(a.sx - b.sx);
+          const penY = (a.h + b.h) / 2 + 4 - Math.abs(a.sy - b.sy);
+          if (penX <= 0 || penY <= 0) continue;
+          // Se separan por donde menos haya que moverlas.
+          if (penY <= penX) {
+            const d = (a.sy <= b.sy ? -1 : 1) * penY / 2;
+            a.sy += d; b.sy -= d;
+          } else {
+            const d = (a.sx <= b.sx ? -1 : 1) * penX / 2;
+            a.sx += d; b.sx -= d;
+          }
+        }
+      }
+    }
+
+    const maxX = capa.clientWidth / 2, maxY = capa.clientHeight / 2;
+    etiquetas.forEach((el, i) => {
+      const p = pos[i];
+      const lx = Math.max(-maxX + p.w / 2 + 2, Math.min(maxX - p.w / 2 - 2, p.sx));
+      const ly = Math.max(-maxY + p.h / 2 + 2, Math.min(maxY - p.h / 2 - 2, p.sy));
+      el.style.transform = `translate(-50%, -50%) translate(${lx.toFixed(1)}px, ${ly.toFixed(1)}px)`;
+    });
+  }
+
+  function apply() {
+    scene.style.transform = `rotateX(${rx}deg) rotateY(${ry}deg)`;
+    proyectarCotas();
+  }
   apply();
 
   function down(x, y) { dragging = true; autoRotate = false; lastX = x; lastY = y; }
@@ -161,7 +258,7 @@ function vertCoord(centerDesdeBorde, dimTotal, scale) {
  * eje que usó la primera cama, dejando que cada una tenga su propia
  * orientación interna.
  */
-function renderProductScene(mountEl, { corrugado, estrategia, grosorPiezaMm }) {
+function renderProductScene(mountEl, { corrugado, estrategia, grosorPiezaMm, largoDobladoMm, altoDobladoMm }) {
   const { largo, ancho, alto } = corrugado; // mm: largo->X, ancho->Z, alto->Y
   const scale = SCENE_PX / Math.max(largo, ancho, alto);
   const contW = largo * scale, contH = alto * scale, contD = ancho * scale;
@@ -234,7 +331,23 @@ function renderProductScene(mountEl, { corrugado, estrategia, grosorPiezaMm }) {
     border: 'box-shadow: inset 0 0 0 1.5px rgba(120,85,45,0.55);',
   }));
 
-  mountScene(mountEl, container + units);
+  // Cotas: las 3 del corrugado ancladas al centro de su arista (largo
+  // abajo al frente, ancho abajo a la derecha, alto en la arista
+  // vertical) y la de la caja doblada arriba del bulto.
+  const primera = estrategia.camas[0];
+  const piezas = primera ? primera.piezasPorPosteta : 0;
+  const altoPosteta = piezas * grosorPiezaMm;
+
+  const cotas = [
+    cota(0, -contH / 2, contD / 2, `Largo ${mmTxt(corrugado.largo)}`),
+    cota(contW / 2, -contH / 2, 0, `Ancho ${mmTxt(corrugado.ancho)}`),
+    cota(-contW / 2, 0, contD / 2, `Alto ${mmTxt(corrugado.alto)}`),
+    cota(0, contH / 2 + 14, 0,
+      `Caja doblada ${mmTxt(largoDobladoMm, '')} × ${mmTxt(altoDobladoMm)}`,
+      `${piezas} pzs por posteta · ${mmTxt(altoPosteta)} de espesor`, 'caja'),
+  ];
+
+  mountScene(mountEl, container + units, { cotas });
 }
 
 const CORR_COLORS = [
@@ -303,5 +416,20 @@ function renderPalletScene(mountEl, { corrugado, estiba, useExtendida = false })
     border: 'box-shadow: inset 0 0 0 1px rgba(90,60,20,0.5);',
   }));
 
-  mountScene(mountEl, pallet + units, { startRy: 40, startRx: -18 });
+  // Cotas: el piso de la tarima, la altura total del bulto (tarima +
+  // camas, que es la que se compara contra el máximo permitido) y la
+  // medida del corrugado que se está estibando.
+  const cimaY = palletH / 2 + camas * boxH;
+  const cotas = [
+    cota(0, -palletH / 2, palletD / 2, `Largo ${mmTxt(largoTarimaMm)}`, 'tarima'),
+    cota(palletW / 2, -palletH / 2, 0, `Ancho ${mmTxt(anchoTarimaMm)}`, 'tarima'),
+    cota(-palletW / 2, (cimaY - palletH / 2) / 2, palletD / 2,
+      `Alto total ${mmTxt(totalAlto)}`,
+      `tarima ${mmTxt(altoTarimaMm)} + ${camas} camas`),
+    cota(0, cimaY + 14, 0,
+      `Corrugado ${corrugado.largo} × ${corrugado.ancho} × ${mmTxt(corrugado.alto)}`,
+      `${estiba.piso.total} por cama · ${camas * estiba.piso.total} en la tarima`, 'caja'),
+  ];
+
+  mountScene(mountEl, pallet + units, { startRy: 40, startRx: -18, cotas });
 }
