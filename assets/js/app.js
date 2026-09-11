@@ -738,29 +738,27 @@ $('#btn-nueva').addEventListener('click', () => {
   // El reset del formulario no regresa la versión a 1 por sí solo.
   $('#version').value = 1;
   $('#version-nota').innerHTML = '';
-  $('#guardar-estado').innerHTML = '';
+  // OJO: #guardar-estado vive DENTRO del preview, así que la línea de
+  // arriba acaba de borrarlo. Buscarlo sin comprobar tiraba el handler a
+  // media limpieza: el encabezado se quedaba con el nombre de la ficha
+  // anterior y ni enfocaba ni subía la página.
+  const guardado = $('#guardar-estado');
+  if (guardado) guardado.innerHTML = '';
+  const avisoHist = $('#historial-aviso');
+  if (avisoHist) avisoHist.innerHTML = '';
   $('#af-header-tag').textContent = 'Ficha nueva';
   $('#cliente').focus();
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
-// Ejemplo precargado (medidas del troquel de ejemplo del proyecto), para
-// que la herramienta abra mostrando un resultado real y no un formulario
-// vacío. Se sobrescribe en cuanto el usuario captura sus propios datos.
-(function precargarEjemplo() {
-  $('#cliente').value = 'SALUTARE';
-  $('#articulo').value = 'CAJA DE EJEMPLO';
-  $('#codigo').value = 'FT-AF0001';
-  $('#realizado').value = 'PREPRENSA';
-  $('#largo').value = '271';
-  $('#ancho').value = '115';
-  $('#alto').value = '106';
-  calibreSelect.value = '14';
-  materialSelect.value = 'CAPLE CHILENO REV CAFE';
-  $('#pegue').value = 'fondo_automatico';
-  $('#laminaAncho').value = '786.45';
-  $('#laminaAlto').value = '317.05';
-  $('#ficha-form').requestSubmit();
+// La herramienta abre con el formulario EN BLANCO (confirmado con el
+// usuario): antes precargaba un ejemplo de SALUTARE y había que borrarlo
+// a mano cada vez, además de que se prestaba a guardar una ficha con
+// datos del ejemplo sin querer.
+(function empezarLimpio() {
+  $('#ficha-form').reset();
+  poblarCalibres();   // el reset regresa el tipo de cartón a sólido
+  $('#version').value = 1;
 })();
 
 // Logo de la barra superior (variante clara, porque el fondo es azul marino).
